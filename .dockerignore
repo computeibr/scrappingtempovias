@@ -1,0 +1,33 @@
+# Dependências (instaladas dentro do container)
+node_modules/
+frontend/node_modules/
+
+# Build do frontend (gerado no stage do Dockerfile)
+frontend/dist/
+
+# Variáveis de ambiente — nunca entram na imagem
+.env
+.env.*
+!.env.example
+!frontend/.env.example
+
+# Git
+.git/
+.gitignore
+
+# Logs
+logs/
+*.log
+
+# Editor
+.vscode/
+.idea/
+
+# Docker (não copiar o próprio compose para a imagem)
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+# Sistema operacional
+.DS_Store
+Thumbs.db

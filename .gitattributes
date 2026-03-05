@@ -1,0 +1,10 @@
+# Força LF em todos os arquivos de texto — garante compatibilidade com Linux/Docker
+* text=auto eol=lf
+
+# Binários — não mexer nas quebras de linha
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary

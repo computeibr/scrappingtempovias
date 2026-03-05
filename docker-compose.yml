@@ -1,0 +1,41 @@
+services:
+
+  # ── Banco de dados PostgreSQL ────────────────────────────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ── Aplicação Node.js + Frontend ─────────────────────────────────────────────
+  app:
+    build: .
+    restart: always
+    ports:
+      - "${PORT:-3001}:3001"
+    environment:
+      PORT: 3001
+      DB: ${DB}
+      DB_USER: ${DB_USER}
+      DB_PASS: ${DB_PASS}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_SSL: "false"
+      SECRET: ${SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+# ── Volumes persistentes ──────────────────────────────────────────────────────
+volumes:
+  postgres_data:

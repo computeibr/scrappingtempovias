@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply bg-brand-gray text-brand-dark font-sans;
+    margin: 0;
+    padding: 0;
+  }
+
+  :root {
+    --navy: #004A80;
+    --navy-dark: #13335A;
+    --sky: #00C0F3;
+    --orange: #E95F3E;
+    --red: #E51B23;
+    --yellow: #F9C600;
+    --green: #34973B;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-navy text-white font-semibold px-4 py-2 rounded-lg hover:bg-navy-900 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-sky text-white font-semibold px-4 py-2 rounded-lg hover:opacity-90 transition-colors duration-200;
+  }
+
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-brand-gray-mid p-4;
+  }
+
+  .input {
+    @apply w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky focus:border-transparent transition;
+  }
+
+  .label {
+    @apply block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1;
+  }
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f0f0f0;
+}
+::-webkit-scrollbar-thumb {
+  background: #004A80;
+  border-radius: 3px;
+}
+
+/* Animação de carregamento */
+@keyframes pulse-navy {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.loading-pulse {
+  animation: pulse-navy 1.5s ease-in-out infinite;
+}
+
+/* React datepicker override */
+.react-datepicker-wrapper {
+  width: 100%;
+}
+.react-datepicker__input-container input {
+  @apply input;
+}

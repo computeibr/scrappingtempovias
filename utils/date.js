@@ -1,0 +1,17 @@
+function formatDate(date) {
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0'); // Months are zero-based
+  const year = date.getFullYear();
+
+  return `${day}/${month}/${year}`;
+}
+
+function validateDatesInterval(dateTimeBegins, dateTimeEnds, intervalLimit = 31) {
+  const dateTimeEndsMinusInterval = dateTimeEnds.minus({ days: intervalLimit });
+
+  if (dateTimeBegins < dateTimeEndsMinusInterval) {
+    throw new Error('Intervalo de datas inválido!');
+  }
+}
+
+module.exports = { formatDate, validateDatesInterval };
