@@ -12,19 +12,22 @@ const fs = require('fs');
 // Função para obter o tempo de viagem de uma determinada rota
 const getTempoVias = async (page, url, name, viaId) => {
   const maxRetries = 2;
+  // Garante modo carro (driving) na URL
+  const urlFinal = url.includes('travelmode=') ? url : url + (url.includes('?') ? '&' : '?') + 'travelmode=driving';
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
 //      console.log(`Tentativa ${attempt} para navegar até a Rota: ${name}`);
-      await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 }); // Aumenta o timeout para 60 segundos
+      await page.goto(urlFinal, { waitUntil: 'networkidle2', timeout: 60000 }); // Aumenta o timeout para 60 segundos
 
       await page.waitForXPath("//div[contains(text(), 'min') or contains(text(), 'h')]", { timeout: 60000 });
       await page.waitForXPath("//div[contains(text(), 'km')]", { timeout: 60000 });
 
+      // Seleciona o tempo de viagem: padrão "X min" ou "X h X min" (texto curto, evita pegar outros modos)
+      const minElement = await page.$x("//div[contains(text(), ' min') and string-length(normalize-space(text())) < 15]");
+      const minTime = await page.evaluate(element => element.textContent.trim(), minElement[0]);
 
-      const minElement = await page.$x("//div[contains(text(), 'min')]");
-      const minTime = await page.evaluate(element => element.textContent, minElement[0]);
       const kmElement = await page.$x("//div[contains(text(), 'km')]");
-      const km = await page.evaluate(element => element.textContent, kmElement[0]);
+      const km = await page.evaluate(element => element.textContent.trim(), kmElement[0]);
       // Insere os dados obtidos no banco de dados usando o Sequelize
       await TempoVias.create({
         nomedarota: name,

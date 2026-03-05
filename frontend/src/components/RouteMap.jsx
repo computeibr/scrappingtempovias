@@ -2,8 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { GoogleMap, useJsApiLoader, Polyline } from '@react-google-maps/api';
 import { routeColor } from '../utils/mapUtils';
 
-const MAPA_CENTER = { lat: -22.940754, lng: -43.440870 }; // Rio de Janeiro
-const _ZOOM = 14;
+const MAPA_CENTER = { lat: -22.940754, lng: -43.440870 };
 const LIBRARIES = ['geometry', 'places'];
 
 const MAP_STYLES = [
@@ -15,7 +14,7 @@ const MAP_STYLES = [
   { featureType: 'transit', stylers: [{ visibility: 'simplified' }] },
 ];
 
-function RotaPolyline({ rota, index }) {
+function RotaPolyline({ rota, index, isActive }) {
   const [path, setPath] = useState(null);
 
   useEffect(() => {
@@ -35,14 +34,15 @@ function RotaPolyline({ rota, index }) {
       path={path}
       options={{
         strokeColor: routeColor(index),
-        strokeWeight: 5,
-        strokeOpacity: 0.9,
+        strokeWeight: isActive ? 7 : 3,
+        strokeOpacity: isActive ? 1.0 : 0.45,
+        zIndex: isActive ? 10 : 1,
       }}
     />
   );
 }
 
-export default function RouteMap({ rotasSelecionadas, rotas }) {
+export default function RouteMap({ rotas, rotaAtiva }) {
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_KEY || '';
 
   const { isLoaded, loadError } = useJsApiLoader({
@@ -56,7 +56,7 @@ export default function RouteMap({ rotasSelecionadas, rotas }) {
 
   if (!apiKey) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-navy-900 rounded-xl">
+      <div className="w-full h-full flex items-center justify-center bg-navy-900">
         <div className="text-center p-8">
           <p className="text-white font-semibold">Chave do Google Maps não configurada</p>
           <p className="text-white/50 text-sm mt-2">
@@ -69,7 +69,7 @@ export default function RouteMap({ rotasSelecionadas, rotas }) {
 
   if (loadError) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-red-50 rounded-xl">
+      <div className="w-full h-full flex items-center justify-center bg-red-50">
         <p className="text-red-600 text-sm">Erro ao carregar Google Maps.</p>
       </div>
     );
@@ -77,19 +77,17 @@ export default function RouteMap({ rotasSelecionadas, rotas }) {
 
   if (!isLoaded) {
     return (
-      <div className="w-full h-full flex items-center justify-center bg-brand-gray rounded-xl">
-        <div className="w-8 h-8 border-3 border-navy/30 border-t-navy rounded-full animate-spin" />
+      <div className="w-full h-full flex items-center justify-center bg-brand-gray">
+        <div className="w-8 h-8 border-2 border-navy/30 border-t-navy rounded-full animate-spin" />
       </div>
     );
   }
 
-  const rotasVisiveis = rotas.filter((r) => rotasSelecionadas.includes(r.id));
-
   return (
     <GoogleMap
-      mapContainerClassName="w-full h-full rounded-xl"
-      center={}
-      zoom={MAPA_ZOOM}
+      mapContainerClassName="w-full h-full"
+      center={MAPA_CENTER}
+      zoom={11}
       options={{
         styles: MAP_STYLES,
         disableDefaultUI: false,
@@ -100,11 +98,12 @@ export default function RouteMap({ rotasSelecionadas, rotas }) {
       }}
       onLoad={onLoad}
     >
-      {rotasVisiveis.map((rota) => (
+      {rotas.map((rota, idx) => (
         <RotaPolyline
           key={rota.id}
           rota={rota}
-          index={rotas.findIndex((r) => r.id === rota.id)}
+          index={idx}
+          isActive={rotaAtiva?.id === rota.id}
         />
       ))}
     </GoogleMap>

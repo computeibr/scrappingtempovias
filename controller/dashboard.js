@@ -139,19 +139,37 @@ router.get('/historico/:id', eAdmin, async (req, res) => {
   }
 });
 
-// GET /api/dashboard/ultimas/:id?limite=20
+// GET /api/dashboard/ultimas/:id?page=1&limite=20&dataInicio=ISO&dataFim=ISO
 router.get('/ultimas/:id', eAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const limite = parseInt(req.query.limite) || 20;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limite = Math.min(100, parseInt(req.query.limite) || 20);
+    const offset = (page - 1) * limite;
+    const { dataInicio, dataFim } = req.query;
 
-    const registros = await TempoVias.findAll({
-      where: { viaId: id },
+    const where = { viaId: id };
+    if (dataInicio && dataFim) {
+      where.leitura = { [Op.between]: [new Date(dataInicio), new Date(dataFim)] };
+    } else if (dataInicio) {
+      where.leitura = { [Op.gte]: new Date(dataInicio) };
+    } else if (dataFim) {
+      where.leitura = { [Op.lte]: new Date(dataFim) };
+    }
+
+    const { count, rows } = await TempoVias.findAndCountAll({
+      where,
       order: [['leitura', 'DESC']],
       limit: limite,
+      offset,
     });
 
-    return res.json({ registros });
+    return res.json({
+      registros: rows,
+      total: count,
+      page,
+      totalPages: Math.ceil(count / limite),
+    });
   } catch (err) {
     return res.status(500).json({ erro: true, mensagem: err.message });
   }
