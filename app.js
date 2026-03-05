@@ -27,6 +27,7 @@ app.use('/rota', rotasvia);
 // API
 app.use('/api/auth', auth);
 app.use('/api/dashboard', dashboard);
+app.use('/api/rotas', rotasvia);
 
 // Serve o frontend (build do Vite) em produção
 const frontendBuild = path.resolve(__dirname, 'frontend', 'dist');

@@ -1,5 +1,5 @@
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 export default function Navbar({ sidebarOpen, onToggleSidebar }) {
   const { user, logout } = useAuth();
@@ -51,6 +51,15 @@ export default function Navbar({ sidebarOpen, onToggleSidebar }) {
           </div>
           <span className="text-white/80 text-sm">{user?.name}</span>
         </div>
+
+        {user?.perfilId === 99 && (
+          <Link
+            to="/admin"
+            className="text-white/70 hover:text-white text-xs border border-white/30 hover:border-white/60 px-3 py-1.5 rounded-lg transition-colors"
+          >
+            Rotas
+          </Link>
+        )}
 
         <button
           onClick={handleLogout}
