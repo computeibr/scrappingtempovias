@@ -39,6 +39,22 @@ router.post("/rotasvia", eAdmin, async (req, res) => {
         .catch(() => res.status(400).json({ erro: true, mensagem: "Erro ao cadastrar rota." }));
 });
 
+router.put("/rotasvia/:id", eAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { name, url, geometry } = req.body;
+
+    if (!name || !url) {
+        return res.status(400).json({ erro: true, mensagem: "Nome e URL são obrigatórios." });
+    }
+
+    await Rotasvia.update({ name, url, geometry: geometry || null }, { where: { id } })
+        .then(([updated]) => {
+            if (!updated) return res.status(404).json({ erro: true, mensagem: "Rota não encontrada." });
+            return res.json({ erro: false, mensagem: "Rota atualizada com sucesso!" });
+        })
+        .catch(() => res.status(400).json({ erro: true, mensagem: "Erro ao atualizar rota." }));
+});
+
 router.delete("/rotasvia/:id", eAdmin, async (req, res) => {
     const { id } = req.params;
 
