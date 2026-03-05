@@ -59,7 +59,10 @@ const agendamentoDefinido = async () => {
   try {
     const vias = await axios.get('http://localhost:3001/rota/rotasvia');
 
-    browser = await puppeteer.launch({ headless: 'new' });
+    browser = await puppeteer.launch({
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
     const page = await browser.newPage();
 
     for (const rota of vias.data.rotasvias) {
