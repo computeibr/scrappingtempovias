@@ -6,7 +6,7 @@ const yup = require('yup');
 const { Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
 
-const TempoVias = require('../models/TempoVias');
+const TempoVias = require('../models/tempovias');
 
 
 router.post('/tempovias', async (req, res) => {

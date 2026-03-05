@@ -7,7 +7,7 @@ const moment = require('moment');
 const puppeteer = require('puppeteer');
 const { stringify } = require('querystring');
 const { DateTime } = require('luxon');
-const TempoVias = require('../models/TempoVias');
+const TempoVias = require('../models/tempovias');
 const Rotasvia = require('../models/rotasvia');
 const fs = require('fs');
 
