@@ -22,12 +22,22 @@ const getTempoVias = async (page, url, name, viaId) => {
       await page.waitForXPath("//div[contains(text(), 'min') or contains(text(), 'h')]", { timeout: 60000 });
       await page.waitForXPath("//div[contains(text(), 'km')]", { timeout: 60000 });
 
-      // Seleciona o tempo de viagem: padrão "X min" ou "X h X min" (texto curto, evita pegar outros modos)
-      const minElement = await page.$x("//div[contains(text(), ' min') and string-length(normalize-space(text())) < 15]");
+      // Seleciona o tempo: exclui texto dentro de <button> (tabs de modo moto/bicicleta/ônibus)
+      // Prioriza elementos de div que não são filhos de botão e têm texto curto tipo "23 min" ou "1 h 10 min"
+      const minElement = await page.$x(
+        "//div[not(ancestor::button) and not(ancestor::li[contains(@class,'modes')]) " +
+        "and (contains(text(),' min') or (contains(text(),' h ') and contains(text(),'min'))) " +
+        "and string-length(normalize-space(text())) < 20]"
+      );
       const minTime = await page.evaluate(element => element.textContent.trim(), minElement[0]);
 
-      const kmElement = await page.$x("//div[contains(text(), 'km')]");
+      const kmElement = await page.$x(
+        "//div[not(ancestor::button) and contains(text(),' km') and string-length(normalize-space(text())) < 15]"
+      );
       const km = await page.evaluate(element => element.textContent.trim(), kmElement[0]);
+
+      console.log(`Id: ${viaId} | Nome: ${name} | Tempo capturado: "${minTime}" | km: "${km}"`);
+
       // Insere os dados obtidos no banco de dados usando o Sequelize
       await TempoVias.create({
         nomedarota: name,
@@ -36,10 +46,6 @@ const getTempoVias = async (page, url, name, viaId) => {
         leitura: new Date(),
         viaId: viaId
       });
-
-
-
-      console.log(`Id:  ${viaId} Nome: ${name}`)
       break; // Sai do loop de re-tentativas em caso de sucesso
     } catch (error) {
       console.error(`Erro ao processar a URL ${name} na tentativa ${attempt}:`, error);

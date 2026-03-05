@@ -139,6 +139,27 @@ router.get('/historico/:id', eAdmin, async (req, res) => {
   }
 });
 
+// GET /api/dashboard/snapshot - última leitura de cada rota (para popup no mapa)
+router.get('/snapshot', eAdmin, async (req, res) => {
+  try {
+    const rotas = await Rotasvia.findAll({ attributes: ['id'], order: [['id', 'ASC']] });
+    const snapshot = {};
+    await Promise.all(
+      rotas.map(async (r) => {
+        const last = await TempoVias.findOne({
+          where: { viaId: r.id },
+          order: [['leitura', 'DESC']],
+          attributes: ['tempo', 'km', 'leitura'],
+        });
+        if (last) snapshot[r.id] = last;
+      }),
+    );
+    return res.json({ snapshot });
+  } catch (err) {
+    return res.status(500).json({ erro: true, mensagem: err.message });
+  }
+});
+
 // GET /api/dashboard/ultimas/:id?page=1&limite=20&dataInicio=ISO&dataFim=ISO
 router.get('/ultimas/:id', eAdmin, async (req, res) => {
   try {

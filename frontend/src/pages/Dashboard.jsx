@@ -20,6 +20,7 @@ export default function Dashboard() {
   const [historico, setHistorico] = useState(null);
   const [loadingHistorico, setLoadingHistorico] = useState(false);
   const [search, setSearch] = useState('');
+  const [snapshot, setSnapshot] = useState({});
 
   const [filters, setFilters] = useState({
     dataInicio: null,
@@ -30,12 +31,14 @@ export default function Dashboard() {
   useEffect(() => {
     async function fetchInit() {
       try {
-        const [rotasRes, resumoRes] = await Promise.all([
+        const [rotasRes, resumoRes, snapshotRes] = await Promise.all([
           api.get('/api/dashboard/rotas'),
           api.get('/api/dashboard/resumo'),
+          api.get('/api/dashboard/snapshot'),
         ]);
         setRotas(rotasRes.data.rotas);
         setResumo(resumoRes.data);
+        setSnapshot(snapshotRes.data.snapshot || {});
       } catch (err) {
         console.error(err);
       } finally {
@@ -165,9 +168,14 @@ export default function Dashboard() {
 
         {/* Área principal: mapa (topo) + análises (baixo) */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Mapa: mostra TODAS as rotas */}
-          <div className="flex-shrink-0" style={{ height: '48%' }}>
-            <RouteMap rotas={rotas} rotaAtiva={rotaAtiva} />
+          {/* Mapa: mostra TODAS as rotas — altura fixa para deixar espaço para análises */}
+          <div className="flex-shrink-0" style={{ height: 380 }}>
+            <RouteMap
+              rotas={rotas}
+              rotaAtiva={rotaAtiva}
+              snapshot={snapshot}
+              onRotaClick={selectRota}
+            />
           </div>
 
           {/* Painel de análises */}

@@ -1,5 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
-import { GoogleMap, useJsApiLoader, Polyline } from '@react-google-maps/api';
+import { GoogleMap, useJsApiLoader, Polyline, InfoWindow } from '@react-google-maps/api';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { routeColor } from '../utils/mapUtils';
 
 const MAPA_CENTER = { lat: -22.940754, lng: -43.440870 };
@@ -14,7 +16,7 @@ const MAP_STYLES = [
   { featureType: 'transit', stylers: [{ visibility: 'simplified' }] },
 ];
 
-function RotaPolyline({ rota, index, isActive }) {
+function RotaPolyline({ rota, index, isActive, onPolylineClick }) {
   const [path, setPath] = useState(null);
 
   useEffect(() => {
@@ -38,12 +40,14 @@ function RotaPolyline({ rota, index, isActive }) {
         strokeOpacity: isActive ? 1.0 : 0.45,
         zIndex: isActive ? 10 : 1,
       }}
+      onClick={(e) => onPolylineClick(e, rota)}
     />
   );
 }
 
-export default function RouteMap({ rotas, rotaAtiva }) {
+export default function RouteMap({ rotas, rotaAtiva, snapshot = {}, onRotaClick }) {
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_KEY || '';
+  const [popup, setPopup] = useState(null); // { position, rota }
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: apiKey,
@@ -53,6 +57,17 @@ export default function RouteMap({ rotas, rotaAtiva }) {
   });
 
   const onLoad = useCallback(() => {}, []);
+
+  function handlePolylineClick(e, rota) {
+    const lat = e.latLng.lat();
+    const lng = e.latLng.lng();
+    setPopup({ position: { lat, lng }, rota });
+    if (onRotaClick) onRotaClick(rota);
+  }
+
+  function handlePopupClose() {
+    setPopup(null);
+  }
 
   if (!apiKey) {
     return (
@@ -104,8 +119,81 @@ export default function RouteMap({ rotas, rotaAtiva }) {
           rota={rota}
           index={idx}
           isActive={rotaAtiva?.id === rota.id}
+          onPolylineClick={handlePolylineClick}
         />
       ))}
+
+      {popup && (
+        <InfoWindow
+          position={popup.position}
+          onCloseClick={handlePopupClose}
+          options={{ pixelOffset: new window.google.maps.Size(0, -5) }}
+        >
+          <PopupContent
+            rota={popup.rota}
+            leitura={snapshot[popup.rota.id]}
+            isActive={rotaAtiva?.id === popup.rota.id}
+            rotaIdx={rotas.findIndex((r) => r.id === popup.rota.id)}
+          />
+        </InfoWindow>
+      )}
     </GoogleMap>
+  );
+}
+
+function PopupContent({ rota, leitura, isActive, rotaIdx }) {
+  const color = routeColor(rotaIdx);
+
+  return (
+    <div style={{ minWidth: 200, maxWidth: 260, fontFamily: 'inherit' }}>
+      {/* Cabeçalho */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+        <div
+          style={{
+            width: 10,
+            height: 10,
+            borderRadius: '50%',
+            background: color,
+            flexShrink: 0,
+          }}
+        />
+        <span style={{ fontWeight: 700, fontSize: 13, color: '#13335A', lineHeight: 1.3 }}>
+          {rota.name}
+        </span>
+      </div>
+
+      {leitura ? (
+        <>
+          {/* Última leitura */}
+          <div
+            style={{
+              background: '#F0F0F0',
+              borderRadius: 6,
+              padding: '6px 10px',
+              marginBottom: 6,
+            }}
+          >
+            <p style={{ fontSize: 11, color: '#888', margin: 0 }}>Última leitura</p>
+            <p style={{ fontSize: 18, fontWeight: 700, color: '#004A80', margin: '2px 0 0' }}>
+              {leitura.tempo}
+            </p>
+            <p style={{ fontSize: 11, color: '#666', margin: '2px 0 0' }}>
+              {leitura.km} &nbsp;·&nbsp;{' '}
+              {format(new Date(leitura.leitura), "dd/MM 'às' HH:mm", { locale: ptBR })}
+            </p>
+          </div>
+        </>
+      ) : (
+        <p style={{ fontSize: 12, color: '#aaa', margin: '4px 0' }}>
+          Sem leituras registradas ainda.
+        </p>
+      )}
+
+      {!isActive && (
+        <p style={{ fontSize: 11, color: '#00C0F3', marginTop: 4 }}>
+          Clique na rota na lista para ver o histórico completo
+        </p>
+      )}
+    </div>
   );
 }
