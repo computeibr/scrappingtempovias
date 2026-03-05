@@ -49,9 +49,13 @@ export default function Admin() {
 
   function getGeometryFromUrl(inputUrl) {
     return new Promise((resolve) => {
-      if (!isLoaded || !window.google) return resolve(null);
+      if (!isLoaded || !window.google) {
+        return resolve({ encodedPolyline: null, path: null, status: 'API_NOT_LOADED' });
+      }
       const parsed = parseGoogleMapsUrl(inputUrl);
-      if (!parsed) return resolve(null);
+      if (!parsed) {
+        return resolve({ encodedPolyline: null, path: null, status: 'URL_INVALIDA' });
+      }
 
       const service = new window.google.maps.DirectionsService();
       service.route(
@@ -178,7 +182,11 @@ export default function Admin() {
     </div>
   ) : preview && !preview.path ? (
     <p className="mt-2 text-sm px-3 py-2 rounded-lg" style={{ background: '#FEE2E2', color: '#B91C1C' }}>
-      Traçado não encontrado. Status: {preview.status}. Verifique se a URL é uma rota do Google Maps (google.com/maps/dir/...) e se a Directions API está habilitada.
+      {preview.status === 'URL_INVALIDA'
+        ? 'URL não reconhecida. Use uma URL do tipo: google.com/maps/dir/Origem/Destino'
+        : preview.status === 'API_NOT_LOADED'
+        ? 'API do Google Maps ainda não carregou. Aguarde e tente novamente.'
+        : `Traçado não encontrado (${preview.status}). Verifique se a Directions API está habilitada no Google Cloud Console.`}
     </p>
   ) : null;
 
@@ -229,7 +237,7 @@ export default function Admin() {
                     className="px-4 py-2 rounded-lg text-sm font-semibold border disabled:opacity-50 transition-colors"
                     style={{ borderColor: '#004A80', color: '#004A80' }}
                   >
-                    {previewCarregando ? '...' : 'Visualizar'}
+                    {previewCarregando ? 'Buscando...' : !isLoaded ? 'Carregando...' : 'Visualizar rota'}
                   </button>
                 </div>
                 <p className="text-xs text-gray-400 mt-1">
@@ -302,7 +310,7 @@ export default function Admin() {
                     className="px-4 py-2 rounded-lg text-sm font-semibold border disabled:opacity-50"
                     style={{ borderColor: '#004A80', color: '#004A80' }}
                   >
-                    {previewCarregando ? '...' : 'Visualizar'}
+                    {previewCarregando ? 'Buscando...' : !isLoaded ? 'Carregando...' : 'Visualizar rota'}
                   </button>
                 </div>
               </div>
