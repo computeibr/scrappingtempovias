@@ -21,8 +21,6 @@ services:
   app:
     build: .
     restart: always
-    ports:
-      - "${PORT:-3001}:3001"
     environment:
       PORT: 3001
       DB: ${DB}
