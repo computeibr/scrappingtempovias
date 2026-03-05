@@ -4,6 +4,7 @@ import { parseGoogleMapsUrl, routeColor } from '../utils/mapUtils';
 
 const MAPA_CENTER = { lat: -22.9068, lng: -43.1729 }; // Rio de Janeiro
 const MAPA_ZOOM = 12;
+const LIBRARIES = ['geometry', 'places'];
 
 const MAP_STYLES = [
   { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#a2c9e8' }] },
@@ -80,6 +81,7 @@ export default function RouteMap({ rotasSelecionadas, rotas }) {
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: apiKey,
+    libraries: LIBRARIES,
     language: 'pt-BR',
     region: 'BR',
   });
