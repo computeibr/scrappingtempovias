@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { GoogleMap, useJsApiLoader, DirectionsRenderer } from '@react-google-maps/api';
-import { parseGoogleMapsUrl, routeColor } from '../utils/mapUtils';
+import { useEffect, useState, useCallback } from 'react';
+import { GoogleMap, useJsApiLoader, Polyline } from '@react-google-maps/api';
+import { routeColor } from '../utils/mapUtils';
 
 const MAPA_CENTER = { lat: -22.9068, lng: -43.1729 }; // Rio de Janeiro
 const MAPA_ZOOM = 12;
@@ -15,61 +15,28 @@ const MAP_STYLES = [
   { featureType: 'transit', stylers: [{ visibility: 'simplified' }] },
 ];
 
-function RouteRenderer({ rota, index, map }) {
-  const [directions, setDirections] = useState(null);
-  const [erro, setErro] = useState(false);
+function RotaPolyline({ rota, index }) {
+  const [path, setPath] = useState(null);
 
   useEffect(() => {
-    if (!map || !rota.url) return;
-
-    const parsed = parseGoogleMapsUrl(rota.url);
-    if (!parsed) {
-      setErro(true);
-      return;
+    if (!rota.geometry || !window.google) return;
+    try {
+      const decoded = window.google.maps.geometry.encoding.decodePath(rota.geometry);
+      setPath(decoded);
+    } catch (e) {
+      console.warn(`Erro ao decodificar geometry da rota "${rota.name}":`, e);
     }
+  }, [rota.geometry]);
 
-    const service = new window.google.maps.DirectionsService();
-    service.route(
-      {
-        origin: parsed.origin,
-        destination: parsed.destination,
-        waypoints: parsed.waypoints,
-        travelMode: window.google.maps.TravelMode.DRIVING,
-        region: 'BR',
-      },
-      (result, status) => {
-        if (status === 'OK') {
-          setDirections(result);
-        } else {
-          setErro(true);
-          console.warn(`Rota "${rota.name}" não pôde ser renderizada: ${status}`);
-        }
-      },
-    );
-  }, [map, rota]);
-
-  if (!directions) return null;
+  if (!path) return null;
 
   return (
-    <DirectionsRenderer
-      directions={directions}
+    <Polyline
+      path={path}
       options={{
-        polylineOptions: {
-          strokeColor: routeColor(index),
-          strokeWeight: 5,
-          strokeOpacity: 0.9,
-        },
-        suppressMarkers: false,
-        markerOptions: {
-          icon: {
-            path: window.google.maps.SymbolPath.CIRCLE,
-            scale: 6,
-            fillColor: routeColor(index),
-            fillOpacity: 1,
-            strokeColor: '#fff',
-            strokeWeight: 2,
-          },
-        },
+        strokeColor: routeColor(index),
+        strokeWeight: 5,
+        strokeOpacity: 0.9,
       }}
     />
   );
@@ -77,7 +44,6 @@ function RouteRenderer({ rota, index, map }) {
 
 export default function RouteMap({ rotasSelecionadas, rotas }) {
   const apiKey = import.meta.env.VITE_GOOGLE_MAPS_KEY || '';
-  const [mapInstance, setMapInstance] = useState(null);
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: apiKey,
@@ -86,19 +52,15 @@ export default function RouteMap({ rotasSelecionadas, rotas }) {
     region: 'BR',
   });
 
-  const onLoad = useCallback((map) => {
-    setMapInstance(map);
-  }, []);
+  const onLoad = useCallback(() => {}, []);
 
   if (!apiKey) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-navy-900 rounded-xl">
         <div className="text-center p-8">
-          <div className="text-4xl mb-3">🗺️</div>
           <p className="text-white font-semibold">Chave do Google Maps não configurada</p>
           <p className="text-white/50 text-sm mt-2">
-            Adicione <code className="bg-white/10 px-1 rounded">VITE_GOOGLE_MAPS_KEY</code> no
-            arquivo <code className="bg-white/10 px-1 rounded">frontend/.env</code>
+            Adicione <code className="bg-white/10 px-1 rounded">VITE_GOOGLE_MAPS_KEY</code> nas variáveis de ambiente
           </p>
         </div>
       </div>
@@ -138,15 +100,13 @@ export default function RouteMap({ rotasSelecionadas, rotas }) {
       }}
       onLoad={onLoad}
     >
-      {mapInstance &&
-        rotasVisiveis.map((rota, idx) => (
-          <RouteRenderer
-            key={rota.id}
-            rota={rota}
-            index={rotas.findIndex((r) => r.id === rota.id)}
-            map={mapInstance}
-          />
-        ))}
+      {rotasVisiveis.map((rota) => (
+        <RotaPolyline
+          key={rota.id}
+          rota={rota}
+          index={rotas.findIndex((r) => r.id === rota.id)}
+        />
+      ))}
     </GoogleMap>
   );
 }

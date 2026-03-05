@@ -1,12 +1,25 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useJsApiLoader } from '@react-google-maps/api';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import Navbar from '../components/Navbar';
+import { parseGoogleMapsUrl } from '../utils/mapUtils';
+
+const LIBRARIES = ['geometry', 'places'];
 
 export default function Admin() {
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_KEY || '';
+
+  const { isLoaded } = useJsApiLoader({
+    googleMapsApiKey: apiKey,
+    libraries: LIBRARIES,
+    language: 'pt-BR',
+    region: 'BR',
+  });
 
   const [rotas, setRotas] = useState([]);
   const [name, setName] = useState('');
@@ -32,13 +45,49 @@ export default function Admin() {
     }
   }
 
+  function getGeometry(parsedUrl) {
+    return new Promise((resolve) => {
+      if (!isLoaded || !window.google) return resolve(null);
+
+      const service = new window.google.maps.DirectionsService();
+      service.route(
+        {
+          origin: parsedUrl.origin,
+          destination: parsedUrl.destination,
+          waypoints: parsedUrl.waypoints,
+          travelMode: window.google.maps.TravelMode.DRIVING,
+          region: 'BR',
+        },
+        (result, status) => {
+          if (status === 'OK') {
+            const polyline = result.routes[0]?.overview_polyline;
+            resolve(polyline || null);
+          } else {
+            console.warn('DirectionsService status:', status);
+            resolve(null);
+          }
+        },
+      );
+    });
+  }
+
   async function handleCadastrar(e) {
     e.preventDefault();
     setMensagem(null);
     setCarregando(true);
+
     try {
-      const { data } = await api.post('/api/rotas/rotasvia', { name, url });
-      setMensagem(data.mensagem);
+      let geometry = null;
+
+      if (isLoaded) {
+        const parsed = parseGoogleMapsUrl(url);
+        if (parsed) {
+          geometry = await getGeometry(parsed);
+        }
+      }
+
+      const { data } = await api.post('/api/rotas/rotasvia', { name, url, geometry });
+      setMensagem(data.mensagem + (geometry ? ' (traçado salvo)' : ' (traçado não capturado — verifique a URL)'));
       setErro(false);
       setName('');
       setUrl('');
@@ -87,7 +136,6 @@ export default function Admin() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ex: Centro → Barra"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2"
-                style={{ '--tw-ring-color': '#004A80' }}
                 required
               />
             </div>
@@ -106,6 +154,7 @@ export default function Admin() {
               />
               <p className="text-xs text-gray-400 mt-1">
                 Abra a rota no Google Maps, copie a URL completa da barra de endereços e cole aqui.
+                O traçado será capturado automaticamente.
               </p>
             </div>
 
@@ -123,11 +172,11 @@ export default function Admin() {
 
             <button
               type="submit"
-              disabled={carregando}
+              disabled={carregando || !isLoaded}
               className="self-start px-6 py-2 rounded-lg text-white text-sm font-semibold transition-opacity disabled:opacity-60"
               style={{ background: '#004A80' }}
             >
-              {carregando ? 'Cadastrando...' : 'Cadastrar'}
+              {carregando ? 'Cadastrando...' : !isLoaded ? 'Carregando Maps...' : 'Cadastrar'}
             </button>
           </form>
         </div>
@@ -145,7 +194,18 @@ export default function Admin() {
               {rotas.map((rota) => (
                 <li key={rota.id} className="py-3 flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-800">{rota.name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-gray-800">{rota.name}</p>
+                      {rota.geometry ? (
+                        <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: '#DCFCE7', color: '#166534' }}>
+                          traçado ok
+                        </span>
+                      ) : (
+                        <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: '#FEF9C3', color: '#854D0E' }}>
+                          sem traçado
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-400 truncate">{rota.url}</p>
                   </div>
                   <button
