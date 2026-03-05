@@ -19,7 +19,10 @@ services:
 
   # ── Aplicação Node.js + Frontend ─────────────────────────────────────────────
   app:
-    build: .
+    build:
+      context: .
+      args:
+        VITE_GOOGLE_MAPS_KEY: ${VITE_GOOGLE_MAPS_KEY}
     restart: always
     environment:
       PORT: 3001

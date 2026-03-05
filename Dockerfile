@@ -7,6 +7,10 @@ COPY frontend/package*.json ./
 RUN npm install
 
 COPY frontend/ ./
+
+ARG VITE_GOOGLE_MAPS_KEY
+ENV VITE_GOOGLE_MAPS_KEY=$VITE_GOOGLE_MAPS_KEY
+
 RUN npm run build
 
 
