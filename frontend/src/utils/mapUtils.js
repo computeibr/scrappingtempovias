@@ -15,7 +15,13 @@ export function parseGoogleMapsUrl(url) {
       const parts = dirMatch[1]
         .split('/')
         .map((p) => decodeURIComponent(p).replace(/\+/g, ' ').trim())
-        .filter((p) => p && !p.startsWith('@'));
+        .filter((p) => {
+          if (!p) return false;
+          if (p.startsWith('@')) return false;       // coordenadas de zoom
+          if (p.startsWith('data=')) return false;   // metadados do Maps
+          if (/^[\d,.\-]+$/.test(p) && p.includes(',')) return false; // lat,lng puro
+          return true;
+        });
 
       if (parts.length >= 2) {
         return {

@@ -3,10 +3,8 @@ const axios = require('axios');
 const sequelize = require("sequelize");
 const cron = require('node-cron');
 const { Op } = require("sequelize");
-const moment = require('moment');
 const puppeteer = require('puppeteer');
 const { stringify } = require('querystring');
-const { DateTime } = require('luxon');
 const TempoVias = require('../models/tempovias');
 const Rotasvia = require('../models/rotasvia');
 const fs = require('fs');
@@ -27,14 +25,12 @@ const getTempoVias = async (page, url, name, viaId) => {
       const minTime = await page.evaluate(element => element.textContent, minElement[0]);
       const kmElement = await page.$x("//div[contains(text(), 'km')]");
       const km = await page.evaluate(element => element.textContent, kmElement[0]);
-      const leitura = new Date(DateTime.now());
-
       // Insere os dados obtidos no banco de dados usando o Sequelize
       await TempoVias.create({
         nomedarota: name,
         tempo: minTime.toString(),
         km: km.toString(),
-        leitura: moment(leitura).format(),
+        leitura: new Date(),
         viaId: viaId
       });
 
