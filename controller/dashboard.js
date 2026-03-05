@@ -2,10 +2,13 @@ require('dotenv').config();
 const express = require('express');
 const router = express.Router();
 const { Op } = require('sequelize');
-const moment = require('moment');
+const { DateTime } = require('luxon');
 const { eAdmin } = require('../middlewares/auth');
 const TempoVias = require('../models/tempovias');
 const Rotasvia = require('../models/rotasvia');
+
+const TZ = 'America/Sao_Paulo';
+const toSP = (date) => DateTime.fromJSDate(new Date(date), { zone: TZ });
 
 // Extrai minutos de strings como "23 min", "1 h 10 min", "1h 5min"
 const extrairMinutos = (tempo) => {
@@ -23,9 +26,9 @@ router.get('/resumo', eAdmin, async (req, res) => {
   try {
     const totalRotas = await Rotasvia.count();
     const totalLeituras = await TempoVias.count();
-    const hoje = moment().startOf('day').toDate();
+    const hoje = DateTime.now().setZone(TZ).startOf('day').toJSDate();
     const leiturasHoje = await TempoVias.count({ where: { leitura: { [Op.gte]: hoje } } });
-    const semana = moment().subtract(7, 'days').toDate();
+    const semana = DateTime.now().setZone(TZ).minus({ days: 7 }).toJSDate();
     const leiturasSemana = await TempoVias.count({ where: { leitura: { [Op.gte]: semana } } });
 
     return res.json({ totalRotas, totalLeituras, leiturasHoje, leiturasSemana });
@@ -55,13 +58,13 @@ router.get('/historico/:id', eAdmin, async (req, res) => {
     if (dataInicio && dataFim) {
       where.leitura = {
         [Op.between]: [
-          moment(dataInicio).startOf('day').toDate(),
-          moment(dataFim).endOf('day').toDate(),
+          DateTime.fromISO(dataInicio, { zone: TZ }).startOf('day').toJSDate(),
+          DateTime.fromISO(dataFim, { zone: TZ }).endOf('day').toJSDate(),
         ],
       };
     } else {
       // padrão: últimos 30 dias
-      where.leitura = { [Op.gte]: moment().subtract(30, 'days').toDate() };
+      where.leitura = { [Op.gte]: DateTime.now().setZone(TZ).minus({ days: 30 }).toJSDate() };
     }
 
     const registros = await TempoVias.findAll({ where, order: [['leitura', 'ASC']] });
@@ -71,8 +74,9 @@ router.get('/historico/:id', eAdmin, async (req, res) => {
       ? diasSemana.split(',').map(Number)
       : null;
 
+    // luxon weekday: 1=Mon...7=Sun; convert to moment/JS convention: 0=Sun...6=Sat
     const filtrados = diasFiltro
-      ? registros.filter((r) => diasFiltro.includes(moment(r.leitura).day()))
+      ? registros.filter((r) => diasFiltro.includes(toSP(r.leitura).weekday % 7))
       : registros;
 
     // Agregação por hora
@@ -86,7 +90,7 @@ router.get('/historico/:id', eAdmin, async (req, res) => {
     }));
 
     filtrados.forEach((r) => {
-      const hora = moment(r.leitura).hour();
+      const hora = toSP(r.leitura).hour;
       const min = extrairMinutos(r.tempo);
       if (min !== null) {
         porHora[hora].total += min;
@@ -108,7 +112,7 @@ router.get('/historico/:id', eAdmin, async (req, res) => {
     // Evolução diária (últimos registros agrupados por dia)
     const porDia = {};
     filtrados.forEach((r) => {
-      const dia = moment(r.leitura).format('YYYY-MM-DD');
+      const dia = toSP(r.leitura).toISODate();
       const min = extrairMinutos(r.tempo);
       if (min !== null) {
         if (!porDia[dia]) porDia[dia] = { total: 0, count: 0 };

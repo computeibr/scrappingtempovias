@@ -2,8 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { GoogleMap, useJsApiLoader, Polyline } from '@react-google-maps/api';
 import { routeColor } from '../utils/mapUtils';
 
-const MAPA_CENTER = { lat: -22.9068, lng: -43.1729 }; // Rio de Janeiro
-const MAPA_ZOOM = 12;
+const MAPA_CENTER = { lat: -22.940754, lng: -43.440870 }; // Rio de Janeiro
+const _ZOOM = 14;
 const LIBRARIES = ['geometry', 'places'];
 
 const MAP_STYLES = [
@@ -88,7 +88,7 @@ export default function RouteMap({ rotasSelecionadas, rotas }) {
   return (
     <GoogleMap
       mapContainerClassName="w-full h-full rounded-xl"
-      center={MAPA_CENTER}
+      center={}
       zoom={MAPA_ZOOM}
       options={{
         styles: MAP_STYLES,
