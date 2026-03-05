@@ -17,9 +17,8 @@ export function parseGoogleMapsUrl(url) {
         .map((p) => decodeURIComponent(p).replace(/\+/g, ' ').trim())
         .filter((p) => {
           if (!p) return false;
-          if (p.startsWith('@')) return false;       // coordenadas de zoom
-          if (p.startsWith('data=')) return false;   // metadados do Maps
-          if (/^[\d,.\-]+$/.test(p) && p.includes(',')) return false; // lat,lng puro
+          if (p.startsWith('@')) return false;     // coordenadas de zoom (@lat,lng,zoom)
+          if (p.startsWith('data=')) return false; // metadados do Maps
           return true;
         });
 
