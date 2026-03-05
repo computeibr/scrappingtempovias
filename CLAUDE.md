@@ -6,24 +6,28 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 ## Stack
 - **Backend:** Node.js + Express + Sequelize + node-cron + Puppeteer
 - **Frontend:** React 18 + Vite + Tailwind CSS + Recharts + @react-google-maps/api
-- **Banco:** Migrando de SQL Server → **PostgreSQL** (em andamento)
-- **Processo:** PM2 (desenvolvimento) → **Docker + EasyPanel** (produção, planejado)
+- **Banco:** **PostgreSQL** (migração do SQL Server concluída — `models/db.js` já usa dialect `postgres`)
+- **Processo:** **Docker + EasyPanel** (produção) | PM2/nodemon (desenvolvimento local)
 - **Auth:** JWT (bcryptjs + jsonwebtoken), middleware `eAdmin` em `middlewares/auth.js`
+- **Datas/Fuso:** `luxon` (principal — dashboard e filtros) + `moment` (legado em alguns helpers)
 
 ## Estrutura de pastas
 ```
 /                       ← backend Express (porta 3001)
 ├── app.js              ← entry point, serve frontend/dist em produção
+├── Dockerfile          ← multi-stage: node:18-alpine build + Chromium para Puppeteer
+├── docker-compose.yml  ← serviços: postgres:15-alpine + app (depends_on healthy)
+├── init.sql            ← cria tabelas e índice na primeira inicialização do Postgres
 ├── controller/
-│   ├── etl.js          ← scraping + cron job a cada 5 min
+│   ├── etl.js          ← scraping + cron job a cada 5 min (roda imediatamente no start)
 │   ├── auth.js         ← POST /api/auth/login + /criar-usuario
-│   ├── dashboard.js    ← GET /api/dashboard/resumo|rotas|historico/:id|ultimas/:id
-│   └── rotasvia.js     ← GET /rota/rotasvia (legado, usado pelo scraper)
+│   ├── dashboard.js    ← GET /api/dashboard/resumo|rotas|historico/:id|snapshot|ultimas/:id
+│   └── rotasvia.js     ← GET /rota/rotasvia e /api/rotas (legado, usado pelo scraper)
 ├── models/
-│   ├── db.js           ← conexão Sequelize (MIGRAR para pg)
+│   ├── db.js           ← Sequelize com dialect postgres; suporte a DB_SSL via env
 │   ├── User.js         ← tabela users
-│   ├── rotasvia.js     ← tabela tv_tempo_via (id, name, url)
-│   └── tempovias.js    ← tabela tempovias (id, viaId FK, nomedarota, tempo, km, leitura)
+│   ├── rotasvia.js     ← tabela tv_tempo_via (id, name, url, geometry)
+│   └── tempovias.js    ← tabela tempovias (id, viaId FK, nomedarota, tempo, km, leitura, urlfoto)
 ├── middlewares/
 │   ├── auth.js         ← verifica JWT, popula req.userId e req.locals.role
 │   └── acl.js          ← controle por perfilId (99 = admin)
@@ -46,11 +50,34 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 ## Banco de dados — tabelas
 | Tabela | Descrição |
 |---|---|
-| `tv_tempo_via` | Rotas cadastradas: id, name, url (URL Google Maps) |
-| `tempovias` | Histórico: id, viaId (FK), nomedarota, tempo, km, leitura (timestamp) |
-| `users` | Usuários: id, name, email, password (bcrypt), perfilId (1=user, 99=admin) |
+| `tv_tempo_via` | Rotas cadastradas: id, name, url, geometry (traçado da rota), createdAt, updatedAt |
+| `tempovias` | Histórico: id, viaId (FK), nomedarota, tempo, km, leitura (timestamp), urlfoto, createdAt, updatedAt |
+| `users` | Usuários: id, name, email, password (bcrypt), perfilId (1=user, 99=admin), createdAt, updatedAt |
 
 > Todos os `.sync()` estão **comentados** — o Sequelize não cria/altera tabelas automaticamente.
+> O schema é criado pelo `init.sql` na primeira vez que o container do PostgreSQL sobe.
+
+## Endpoints da API
+| Método | Rota | Auth | Descrição |
+|--------|------|------|-----------|
+| POST | `/api/auth/login` | — | Autenticação, retorna JWT |
+| POST | `/api/auth/criar-usuario` | — | Cria novo usuário |
+| GET | `/api/dashboard/resumo` | JWT | Contadores gerais (totalRotas, totalLeituras, hoje, semana) |
+| GET | `/api/dashboard/rotas` | JWT | Lista todas as rotas cadastradas |
+| GET | `/api/dashboard/historico/:id` | JWT | Médias por hora + evolução diária com filtros |
+| GET | `/api/dashboard/snapshot` | JWT | Última leitura de cada rota (para popup no mapa) |
+| GET | `/api/dashboard/ultimas/:id` | JWT | Últimas leituras com paginação |
+| GET | `/rota/rotasvia` ou `/api/rotas` | — | Legado — lista de rotas usada pelo scraper |
+
+**Parâmetros de `/historico/:id`:**
+- `dataInicio` / `dataFim` — `YYYY-MM-DD` (padrão: últimos 30 dias)
+- `diasSemana` — `0,1,2,3,4,5,6` (Dom=0, Sab=6)
+- Retorna: `mediasPorHora`, `evolucaoDiaria`, `totalRegistros`
+
+**Parâmetros de `/ultimas/:id`:**
+- `page` — número da página (padrão: 1)
+- `limite` — registros por página (padrão: 20, máx: 100)
+- `dataInicio` / `dataFim` — filtro de período (ISO 8601)
 
 ## Variáveis de ambiente
 **`.env` (raiz — backend):**
@@ -61,6 +88,8 @@ DB=nome_banco
 DB_USER=usuario
 DB_PASS=senha
 DB_HOST=host
+DB_PORT=5432
+DB_SSL=false
 ```
 **`frontend/.env`:**
 ```
@@ -80,12 +109,27 @@ Cores extraídas do `identidadevisual2022.pdf` (Manual de Marca Prefeitura Rio):
 - Em desenvolvimento: Vite (3000) com proxy para Express (3001)
 - Rotas legadas (`/rota/rotasvia`) mantidas — o scraper interno depende delas
 - JWT armazenado em localStorage com chaves `tv_token` e `tv_user`
+- CORS configurado como `*` (aberto) — restringir em produção se necessário
+- etl.js executa `agendamentoDefinido()` imediatamente ao iniciar (além do cron a cada 5min)
+- Flag `isRunning` impede execuções paralelas do cron
+
+## Docker
+O `Dockerfile` usa **multi-stage build**:
+- **Stage 1** (`node:18-alpine`): instala deps do frontend e faz `npm run build`
+- **Stage 2** (`node:18-alpine` + Chromium via `apk`): instala deps de produção do backend e copia o build do frontend
+
+Variáveis de build do Docker:
+- `VITE_GOOGLE_MAPS_KEY` passada via `ARG` para o Stage 1 (injetada no build do Vite)
+
+Configuração Puppeteer no Docker:
+- `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true`
+- `PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser`
 
 ---
 
 ## PRÓXIMOS PASSOS (em andamento)
 
-### Migração SQL Server → PostgreSQL + Docker
+### Deploy via Docker + EasyPanel
 1. [x] Atualizar `models/db.js` — dialect `postgres`, suporte a `DB_SSL` via env
 2. [x] Criar `Dockerfile` — multi-stage: stage 1 build frontend Vite, stage 2 Node prod com Chromium (Puppeteer)
 3. [x] Criar `docker-compose.yml` — serviços `postgres` (healthcheck) + `app` (depends_on healthy)
