@@ -14,26 +14,14 @@ ENV VITE_GOOGLE_MAPS_KEY=$VITE_GOOGLE_MAPS_KEY
 RUN npm run build
 
 
-# ─── Stage 2: Aplicação em produção ───────────────────────────────────────────
+# ─── Stage 2: Aplicação em produção (web only — sem Chromium/Puppeteer) ───────
 FROM node:18-alpine AS production
-
-# Puppeteer precisa do Chromium
-RUN apk add --no-cache \
-    chromium \
-    nss \
-    freetype \
-    harfbuzz \
-    ca-certificates \
-    ttf-freefont
-
-# Diz ao Puppeteer para usar o Chromium instalado pelo Alpine (não baixar o próprio)
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 WORKDIR /app
 
-# Instala apenas dependências de produção
+# Instala apenas dependências de produção (puppeteer não baixa Chromium — ETL desativado)
 COPY package*.json ./
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 RUN npm install --omit=dev
 
 # Copia o código do backend

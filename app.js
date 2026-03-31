@@ -3,7 +3,6 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
-const etl = require('./controller/etl');
 const rotasvia = require('./controller/rotasvia');
 const auth = require('./controller/auth');
 const dashboard = require('./controller/dashboard');
@@ -41,4 +40,12 @@ app.get('*', (req, res) => {
 });
 
 const port = process.env.PORT || 3001;
-app.listen(port, () => { console.log('Tempovias API rodando na porta %s', port); });
+app.listen(port, () => {
+  console.log('Tempovias API rodando na porta %s', port);
+  if (process.env.ETL_ENABLED === 'true') {
+    require('./controller/etl');
+    console.log('ETL ativo — scraping a cada 5 minutos.');
+  } else {
+    console.log('ETL desativado (ETL_ENABLED != true).');
+  }
+});

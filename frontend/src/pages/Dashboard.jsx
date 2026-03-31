@@ -90,10 +90,10 @@ export default function Dashboard() {
           className={`
             flex-shrink-0 w-56 flex flex-col border-r border-white/10 overflow-hidden
             transition-transform duration-300 z-20
-            fixed md:relative md:translate-x-0 inset-y-0 left-0
+            fixed top-14 bottom-0 left-0 md:relative md:top-auto md:bottom-auto md:translate-x-0
             ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
           `}
-          style={{ background: '#13335A', top: 56 }}
+          style={{ background: '#13335A' }}
         >
           <div className="px-3 py-2.5 border-b border-white/10 flex-shrink-0">
             <p className="text-white font-semibold text-xs uppercase tracking-widest mb-2">
