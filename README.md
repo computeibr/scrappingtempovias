@@ -138,6 +138,27 @@ VITE_GOOGLE_MAPS_KEY=sua_chave_google_maps
 
 ---
 
+## Modos de execução
+
+O sistema tem **dois modos** de execução, com comportamentos distintos:
+
+### Modo desenvolvimento
+- **Backend** (Express) roda na porta `3001`
+- **Frontend** (Vite dev server) roda na porta `3000`, com proxy automático para a API em `3001`
+- Hot reload ativo — alterações refletem imediatamente sem precisar buildar
+- Acesse o sistema em `http://localhost:3000`
+
+### Modo produção local (PM2)
+- O frontend é **compilado** (`npm run build`) gerando `frontend/dist/`
+- O Express passa a servir os arquivos estáticos do `dist/` **na mesma porta 3001**
+- Frontend + API rodam no **mesmo processo**, na mesma porta
+- Gerenciado pelo PM2 — sobrevive a reboots e quedas de energia
+- Acesse o sistema em `http://localhost:3001`
+
+> Este é o mesmo comportamento do Docker — Express unificando tudo em uma porta só.
+
+---
+
 ## Instalação e execução
 
 ### Desenvolvimento (dois terminais)
@@ -149,10 +170,33 @@ npm run dev
 
 # Terminal 2 — Frontend (porta 3000, proxy para 3001)
 cd frontend
+npm install
 npm run dev
 ```
 
 Acesse `http://localhost:3000`
+
+### Produção local com PM2 (máquina do cliente)
+
+```bash
+# 1. Instalar dependências (primeira vez)
+npm install
+cd frontend && npm install && cd ..
+
+# 2. Buildar o frontend
+cd frontend && npm run build && cd ..
+
+# 3. Iniciar com PM2
+pm2 start ecosystem.config.js --update-env
+pm2 save
+```
+
+Ou use o script pronto em `scripts/iniciar.bat` (faz os passos 2 e 3 automaticamente).
+
+Acesse `http://localhost:3001`
+
+> **Atenção:** Sempre que alterar arquivos do frontend, rode `npm run build` dentro de `frontend/`
+> e reinicie o PM2 com `pm2 restart my-app` para as mudanças entrarem em vigor.
 
 ### Produção via Docker (EasyPanel / VPS)
 
@@ -241,6 +285,115 @@ curl -X POST http://localhost:3001/api/auth/criar-usuario \
 | `react-router-dom`       | Roteamento client-side                 |
 | `react-datepicker`       | Seletor de intervalo de datas          |
 | `axios`                  | Requisições HTTP com interceptors JWT  |
+
+---
+
+## Deploy na VPS com EasyPanel
+
+### Pré-requisitos
+- VPS com EasyPanel instalado
+- Banco PostgreSQL já rodando e acessível (host, porta, usuário, senha, nome do banco)
+- Repositório no GitHub (público ou privado com acesso configurado)
+- Chave da Google Maps JavaScript API
+
+---
+
+### Passo 1 — Conectar o repositório no EasyPanel
+
+1. Acesse o EasyPanel no navegador (`http://IP-da-VPS:3000`)
+2. Crie um novo **Project**
+3. Dentro do projeto, clique em **Create Service → App**
+4. Em **Source**, selecione **GitHub** e autorize o acesso ao repositório `scrappingtempovias`
+5. Branch: `main`
+
+---
+
+### Passo 2 — Configurar o build
+
+No painel da service:
+
+- **Build method:** `Dockerfile` (o EasyPanel detecta automaticamente)
+- O `docker-compose.yml` **não é usado** diretamente pelo EasyPanel — ele gerencia os containers. As variáveis de ambiente são configuradas no painel.
+
+---
+
+### Passo 3 — Configurar as variáveis de ambiente
+
+Na aba **Environment** da service, adicione:
+
+```
+PORT=3001
+SECRET=<string aleatória forte — ex: openssl rand -hex 32>
+DB=<nome do banco>
+DB_USER=<usuário do banco>
+DB_PASS=<senha do banco>
+DB_HOST=<host do PostgreSQL>
+DB_PORT=<porta do PostgreSQL>
+DB_SSL=false
+VITE_GOOGLE_MAPS_KEY=<sua chave Google Maps API>
+```
+
+> `ETL_ENABLED` **não precisa ser definido** — o Dockerfile já define `ETL_ENABLED=false` por padrão via `docker-compose.yml`. O scraping nunca roda na VPS.
+
+---
+
+### Passo 4 — Configurar o domínio / porta
+
+Na aba **Domains** da service:
+
+- Adicione o domínio ou subdomínio desejado
+- Porta interna: `3001`
+- Ative HTTPS se disponível (Let's Encrypt)
+
+---
+
+### Passo 5 — Fazer o deploy
+
+1. Clique em **Deploy** (ou **Build & Deploy**)
+2. Acompanhe os logs de build — o processo tem duas etapas:
+   - **Stage 1:** instala deps do frontend e roda `vite build` (usa `VITE_GOOGLE_MAPS_KEY`)
+   - **Stage 2:** instala deps de produção do backend e sobe `node app.js`
+3. Quando aparecer `Tempovias API rodando na porta 3001`, o deploy foi concluído
+
+---
+
+### Passo 6 — Criar o primeiro usuário admin
+
+Com a aplicação no ar, rode o comando abaixo (substitua os dados):
+
+```bash
+curl -X POST https://seu-dominio.com/api/auth/criar-usuario \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Admin","email":"seu@email.com","password":"suasenha","perfilId":99}'
+```
+
+Ou via PowerShell local:
+
+```powershell
+Invoke-RestMethod -Method POST -Uri "https://seu-dominio.com/api/auth/criar-usuario" `
+  -ContentType "application/json" `
+  -Body '{"name":"Admin","email":"seu@email.com","password":"suasenha","perfilId":99}'
+```
+
+---
+
+### Atualizações futuras
+
+A cada novo `git push` para `main`, o EasyPanel detecta automaticamente e faz o redeploy. Basta fazer push do repositório — não é necessário acessar o servidor.
+
+---
+
+### Resumo da arquitetura em produção
+
+```
+[Máquina local do cliente]          [VPS — EasyPanel]
+  Node.js + PM2                       Docker container
+  Express + ETL (scraping)            Express (sem ETL)
+  Puppeteer → Google Maps             Frontend estático servido pelo Express
+        ↓                                     ↓
+        └──────────── PostgreSQL (VPS) ───────┘
+                    (banco único, compartilhado)
+```
 
 ---
 
