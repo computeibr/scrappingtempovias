@@ -59,6 +59,13 @@ export default function Navbar({ sidebarOpen, onToggleSidebar }) {
           Monitor
         </Link>
 
+        <Link
+          to="/metodologia"
+          className="text-white/70 hover:text-white text-xs border border-white/30 hover:border-white/60 px-3 py-1.5 rounded-lg transition-colors"
+        >
+          Metodologia
+        </Link>
+
         {user?.perfilId === 99 && (
           <Link
             to="/admin"

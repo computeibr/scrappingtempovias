@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import Admin from './pages/Admin';
 import Monitor from './pages/Monitor';
 import Feriados from './pages/Feriados';
+import Metodologia from './pages/Metodologia';
 
 function PrivateRoute({ children }) {
   const { token } = useAuth();
@@ -38,6 +39,14 @@ export default function App() {
             element={
               <PrivateRoute>
                 <Feriados />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/metodologia"
+            element={
+              <PrivateRoute>
+                <Metodologia />
               </PrivateRoute>
             }
           />
