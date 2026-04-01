@@ -1,4 +1,3 @@
-import { DateTime } from 'luxon';
 
 const STATUS_CONFIG = {
   acima:        { bg: 'bg-red-50',    border: 'border-red-200',    badge: 'bg-red-100 text-red-700',    dot: 'bg-red-500',    label: 'Acima da média' },
@@ -16,7 +15,9 @@ export default function RouteCard({ rota }) {
     : '—';
 
   const leituraHora = rota.leituraAtual?.leitura
-    ? DateTime.fromISO(rota.leituraAtual.leitura).setZone('America/Sao_Paulo').toFormat('HH:mm')
+    ? new Date(rota.leituraAtual.leitura).toLocaleTimeString('pt-BR', {
+        hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo',
+      })
     : null;
 
   return (

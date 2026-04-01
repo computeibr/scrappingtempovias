@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { DateTime } from 'luxon';
+import { format, parseISO, addDays } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import api from '../../services/api';
 import Navbar from '../../components/Navbar';
 import { useAuth } from '../../contexts/AuthContext';
@@ -66,8 +67,11 @@ export default function Feriados() {
     }
   }
 
-  const formatarData = (iso) =>
-    DateTime.fromISO(iso).toFormat("dd/MM/yyyy (cccc)", { locale: 'pt' });
+  const formatarData = (iso) => {
+    // YYYY-MM-DD vem como string — parseISO trata como UTC, addDays(1) corrige offset BR
+    const d = addDays(parseISO(iso), 1);
+    return format(d, "dd/MM/yyyy (EEEE)", { locale: ptBR });
+  };
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: '#F0F0F0' }}>
