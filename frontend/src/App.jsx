@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Admin from './pages/Admin';
+import Monitor from './pages/Monitor';
+import Feriados from './pages/Feriados';
 
 function PrivateRoute({ children }) {
   const { token } = useAuth();
@@ -20,6 +22,22 @@ export default function App() {
             element={
               <PrivateRoute>
                 <Admin />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/monitor"
+            element={
+              <PrivateRoute>
+                <Monitor />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/feriados"
+            element={
+              <PrivateRoute>
+                <Feriados />
               </PrivateRoute>
             }
           />

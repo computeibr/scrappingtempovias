@@ -52,6 +52,13 @@ export default function Navbar({ sidebarOpen, onToggleSidebar }) {
           <span className="text-white/80 text-sm">{user?.name}</span>
         </div>
 
+        <Link
+          to="/monitor"
+          className="text-white/70 hover:text-white text-xs border border-white/30 hover:border-white/60 px-3 py-1.5 rounded-lg transition-colors"
+        >
+          Monitor
+        </Link>
+
         {user?.perfilId === 99 && (
           <Link
             to="/admin"

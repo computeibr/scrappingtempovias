@@ -6,6 +6,8 @@ require('dotenv').config();
 const rotasvia = require('./controller/rotasvia');
 const auth = require('./controller/auth');
 const dashboard = require('./controller/dashboard');
+const monitor = require('./controller/monitor');
+const feriados = require('./controller/feriados');
 
 const app = express();
 
@@ -26,6 +28,8 @@ app.use('/rota', rotasvia);
 // API
 app.use('/api/auth', auth);
 app.use('/api/dashboard', dashboard);
+app.use('/api/monitor', monitor);
+app.use('/api/feriados', feriados);
 app.use('/api/rotas', rotasvia);
 
 // Serve o frontend (build do Vite) em produção
