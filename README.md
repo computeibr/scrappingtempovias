@@ -260,6 +260,96 @@ curl -X POST http://localhost:3001/api/auth/criar-usuario \
 
 ---
 
+## Endpoints adicionais (Monitor, Feriados)
+
+| Método | Rota | Auth | Descrição |
+|--------|------|------|-----------|
+| GET | `/api/monitor` | JWT | Todas as rotas com tempo atual e variação vs. média histórica |
+| GET | `/api/feriados` | JWT | Lista dias não úteis cadastrados |
+| POST | `/api/feriados` | JWT Admin | Cadastra dia não útil (data, descrição, tipo) |
+| DELETE | `/api/feriados/:id` | JWT Admin | Remove dia não útil |
+
+**Resposta de `/api/monitor` por rota:**
+```json
+{
+  "id": 1,
+  "nome": "Centro → Barra",
+  "url": "https://www.google.com/maps/dir/...",
+  "leituraAtual": { "tempo": "45 min", "tempoMinutos": 45, "km": "28,3 km", "leitura": "2026-04-06T14:30:00Z" },
+  "mediaHistorica": { "media": 36.7, "baseadoEm": 12 },
+  "variacao": 22.6,
+  "status": "acima"
+}
+```
+
+**Tipos de status:** `acima` (> +5%) · `normal` (±5%) · `abaixo` (< -5%) · `sem_historico` · `sem_dados`
+
+---
+
+## Páginas do frontend
+
+| Rota | Acesso | Descrição |
+|------|--------|-----------|
+| `/` | Autenticado | Dashboard principal — mapa + gráfico + histórico por rota |
+| `/monitor` | Autenticado | Monitor em tempo real — cards de todas as rotas com variação, auto-refresh 2 min |
+| `/feriados` | Autenticado | Dias não úteis — listagem pública, cadastro/remoção somente admin |
+| `/metodologia` | Autenticado | Documentação técnica — metodologia de coleta, cálculos e perguntas frequentes |
+| `/admin` | Admin (perfilId=99) | Gerenciar rotas — cadastro, edição e remoção com preview no mapa |
+| `/login` | Público | Autenticação JWT |
+
+---
+
+## Arquitetura de dois ambientes (cliente)
+
+O sistema opera em dois ambientes simultâneos com o **mesmo banco PostgreSQL** na VPS:
+
+```
+[Máquina local do cliente]          [VPS — EasyPanel]
+  Node.js + PM2                       Docker container
+  Express + ETL (scraping)            Express (sem ETL)
+  Puppeteer → Google Maps             Frontend estático
+  ETL_ENABLED=true                    ETL_ENABLED=false
+        ↓                                     ↓
+        └──────── PostgreSQL (VPS) ───────────┘
+```
+
+- **Local:** coleta dados a cada 5 min, salva no banco da VPS. PM2 + `pm2-windows-startup` reinicia automaticamente após quedas de energia.
+- **VPS:** consome os dados e exibe o sistema. Sem Puppeteer/Chromium — VPS não tem recursos para scraping.
+
+---
+
+## Metodologia de cálculo (Monitor)
+
+A variação exibida nos cards do Monitor é calculada como:
+
+```
+variação (%) = ((tempo_atual − média_histórica) / média_histórica) × 100
+```
+
+**Filtros aplicados à média histórica:**
+- Mesma hora do dia (ex: leitura às 17h → compara com leituras às 17h)
+- Mesmo dia da semana (ex: sexta → compara com sextas anteriores)
+- Últimas 3 semanas (21 dias)
+- Exclui dias cadastrados em `dias_nao_uteis` (feriados e pontos facultativos)
+
+A tolerância de ±5% evita falsos alertas por variações naturais. Documentação completa em [`biblioteca/`](biblioteca/).
+
+---
+
+## Banco de dados — tabela adicional
+
+### Tabela `dias_nao_uteis` — Feriados e pontos facultativos
+| Campo | Tipo | Descrição |
+|---|---|---|
+| id | SERIAL PK | Identificador |
+| data | DATE UNIQUE | Data do dia não útil |
+| descricao | VARCHAR(150) | Nome do feriado/evento |
+| tipo | VARCHAR(50) | `feriado_nacional`, `feriado_municipal`, `ponto_facultativo` |
+
+Pré-populada com feriados nacionais e municipais do Rio de Janeiro de 2025 e 2026.
+
+---
+
 ## Dependências principais
 
 ### Backend

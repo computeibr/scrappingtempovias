@@ -4,7 +4,7 @@ import { ptBR } from 'date-fns/locale';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import api from '../services/api';
-import Navbar from '../components/Navbar';
+import AppShell from '../components/AppShell';
 import StatsCards from '../components/StatsCards';
 import FilterPanel from '../components/FilterPanel';
 import RouteMap from '../components/RouteMap';
@@ -12,7 +12,6 @@ import TimeChart from '../components/TimeChart';
 import { routeColor } from '../utils/mapUtils';
 
 export default function Dashboard() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [rotas, setRotas] = useState([]);
   const [loadingRotas, setLoadingRotas] = useState(true);
   const [rotaAtiva, setRotaAtiva] = useState(null);
@@ -81,18 +80,11 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
-      <Navbar sidebarOpen={sidebarOpen} onToggleSidebar={() => setSidebarOpen((v) => !v)} />
-
+    <AppShell>
       <div className="flex flex-1 overflow-hidden">
-        {/* Painel lateral: lista de rotas */}
+        {/* Painel lateral: lista de rotas — sempre visível no desktop, oculto no mobile */}
         <aside
-          className={`
-            flex-shrink-0 w-56 flex flex-col border-r border-white/10 overflow-hidden
-            transition-transform duration-300 z-20
-            fixed top-14 bottom-0 left-0 md:relative md:top-auto md:bottom-auto md:translate-x-0
-            ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-          `}
+          className="hidden md:flex flex-shrink-0 w-56 flex-col border-r border-white/10 overflow-hidden"
           style={{ background: '#13335A' }}
         >
           <div className="px-3 py-2.5 border-b border-white/10 flex-shrink-0">
@@ -167,14 +159,6 @@ export default function Dashboard() {
             <p className="text-white/30 text-xs text-center">Coleta automática · 5 min</p>
           </div>
         </aside>
-
-        {/* Overlay mobile */}
-        {sidebarOpen && (
-          <div
-            className="fixed inset-0 bg-black/40 z-10 md:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
 
         {/* Área principal: mapa (topo) + análises (baixo) */}
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -262,7 +246,7 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
 

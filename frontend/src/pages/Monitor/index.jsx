@@ -1,13 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
 import api from '../../services/api';
-import Navbar from '../../components/Navbar';
+import AppShell from '../../components/AppShell';
 import RouteCard from './RouteCard';
 
 const INTERVALO = 120; // segundos
 
 export default function Monitor() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dados, setDados] = useState(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(null);
@@ -66,10 +64,8 @@ export default function Monitor() {
     : null;
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#F0F0F0' }}>
-      <Navbar sidebarOpen={sidebarOpen} onToggleSidebar={() => setSidebarOpen((v) => !v)} />
-
-      <div className="flex-1 p-4 max-w-7xl mx-auto w-full">
+    <AppShell>
+      <div className="flex-1 overflow-y-auto p-4 max-w-7xl mx-auto w-full">
 
         {/* Barra superior */}
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -118,13 +114,6 @@ export default function Monitor() {
               Próxima atualização: {String(Math.floor(countdown / 60)).padStart(2, '0')}:{String(countdown % 60).padStart(2, '0')}
             </div>
 
-            {/* Link feriados (visível para todos) */}
-            <Link
-              to="/feriados"
-              className="text-xs px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-600 hover:border-[#004A80] hover:text-[#004A80] transition-colors"
-            >
-              Dias não úteis
-            </Link>
           </div>
         </div>
 
@@ -175,6 +164,6 @@ export default function Monitor() {
           </div>
         )}
       </div>
-    </div>
+    </AppShell>
   );
 }

@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import api from '../../services/api';
-import Navbar from '../../components/Navbar';
+import AppShell from '../../components/AppShell';
 import { useAuth } from '../../contexts/AuthContext';
 
 const TIPOS = [
@@ -22,7 +21,6 @@ export default function Feriados() {
   const { user } = useAuth();
   const isAdmin = user?.perfilId === 99;
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [feriados, setFeriados] = useState([]);
   const [loading, setLoading] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -74,23 +72,13 @@ export default function Feriados() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#F0F0F0' }}>
-      <Navbar sidebarOpen={sidebarOpen} onToggleSidebar={() => setSidebarOpen((v) => !v)} />
-
-      <div className="flex-1 p-4 max-w-3xl mx-auto w-full">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-xl font-bold text-[#004A80]">Dias Não Úteis</h1>
-            <p className="text-xs text-gray-400 mt-0.5">
-              Feriados e pontos facultativos excluídos do cálculo de médias
-            </p>
-          </div>
-          <Link
-            to="/monitor"
-            className="text-xs px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-600 hover:border-[#004A80] hover:text-[#004A80] transition-colors"
-          >
-            ← Monitor
-          </Link>
+    <AppShell>
+      <div className="flex-1 overflow-y-auto p-4 max-w-3xl mx-auto w-full">
+        <div className="mb-4">
+          <h1 className="text-xl font-bold text-[#004A80]">Dias Não Úteis</h1>
+          <p className="text-xs text-gray-400 mt-0.5">
+            Feriados e pontos facultativos excluídos do cálculo de médias
+          </p>
         </div>
 
         {/* Formulário — somente admin */}
@@ -192,6 +180,6 @@ export default function Feriados() {
           )}
         </div>
       </div>
-    </div>
+    </AppShell>
   );
 }

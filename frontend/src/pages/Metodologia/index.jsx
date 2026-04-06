@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import Navbar from '../../components/Navbar';
+import AppShell from '../../components/AppShell';
 
 // ─── Conteúdo da biblioteca embutido no frontend ─────────────────────────────
 // Fonte de verdade: /biblioteca/*.md no repositório
@@ -376,14 +375,11 @@ function Secao({ secao }) {
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 export default function Metodologia() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [expandirTodos, setExpandirTodos] = useState(false);
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#F0F0F0' }}>
-      <Navbar sidebarOpen={sidebarOpen} onToggleSidebar={() => setSidebarOpen((v) => !v)} />
-
-      <div className="flex-1 p-4 max-w-3xl mx-auto w-full">
+    <AppShell>
+      <div className="flex-1 overflow-y-auto p-4 max-w-3xl mx-auto w-full">
 
         {/* Cabeçalho */}
         <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
@@ -393,20 +389,12 @@ export default function Metodologia() {
               Como o sistema coleta dados, calcula médias e classifica o trânsito
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setExpandirTodos((v) => !v)}
-              className="text-xs px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-600 hover:border-[#004A80] hover:text-[#004A80] transition-colors"
-            >
-              {expandirTodos ? 'Recolher tudo' : 'Expandir tudo'}
-            </button>
-            <Link
-              to="/monitor"
-              className="text-xs px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-600 hover:border-[#004A80] hover:text-[#004A80] transition-colors"
-            >
-              ← Monitor
-            </Link>
-          </div>
+          <button
+            onClick={() => setExpandirTodos((v) => !v)}
+            className="text-xs px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-600 hover:border-[#004A80] hover:text-[#004A80] transition-colors"
+          >
+            {expandirTodos ? 'Recolher tudo' : 'Expandir tudo'}
+          </button>
         </div>
 
         {/* Aviso sobre a fonte */}
@@ -426,7 +414,7 @@ export default function Metodologia() {
           ))}
         </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
 

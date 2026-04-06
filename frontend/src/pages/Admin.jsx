@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useJsApiLoader, GoogleMap, Polyline } from '@react-google-maps/api';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
-import Navbar from '../components/Navbar';
+import AppShell from '../components/AppShell';
 import { parseGoogleMapsUrl } from '../utils/mapUtils';
 
 const LIBRARIES = ['geometry', 'places'];
@@ -191,10 +191,8 @@ export default function Admin() {
   ) : null;
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#F0F0F0' }}>
-      <Navbar />
-
-      <div className="flex-1 p-6 max-w-3xl mx-auto w-full">
+    <AppShell>
+      <div className="flex-1 overflow-y-auto p-4 max-w-3xl mx-auto w-full">
         <h1 className="text-2xl font-bold mb-6" style={{ color: '#004A80' }}>
           Gerenciar Rotas
         </h1>
@@ -424,6 +422,6 @@ export default function Admin() {
           Voltar ao Dashboard
         </button>
       </div>
-    </div>
+    </AppShell>
   );
 }
