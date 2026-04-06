@@ -26,7 +26,19 @@ export default function RouteCard({ rota }) {
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${cfg.dot}`} />
-          <span className="text-sm font-semibold text-[#1D1D1B] truncate">{rota.nome}</span>
+          {rota.url ? (
+            <a
+              href={rota.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-semibold text-[#004A80] hover:underline truncate"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {rota.nome}
+            </a>
+          ) : (
+            <span className="text-sm font-semibold text-[#1D1D1B] truncate">{rota.nome}</span>
+          )}
         </div>
         <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${cfg.badge}`}>
           {cfg.label}

@@ -138,13 +138,23 @@ export default function Dashboard() {
                       className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                       style={{ background: color }}
                     />
-                    <span
-                      className={`text-xs truncate flex-1 ${
-                        isActive ? 'text-white font-semibold' : 'text-white/60'
-                      }`}
-                    >
+                    <span className={`text-xs truncate flex-1 ${isActive ? 'text-white font-semibold' : 'text-white/60'}`}>
                       {rota.name}
                     </span>
+                    {rota.url && (
+                      <a
+                        href={rota.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="flex-shrink-0 text-white/30 hover:text-white/80 transition-colors"
+                        title="Abrir no Google Maps"
+                      >
+                        <svg viewBox="0 0 24 24" className="w-3 h-3 fill-current">
+                          <path d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/>
+                        </svg>
+                      </a>
+                    )}
                     {isActive && (
                       <span className="text-sky text-xs">●</span>
                     )}
@@ -202,9 +212,20 @@ export default function Dashboard() {
                       background: routeColor(rotas.findIndex((r) => r.id === rotaAtiva.id)),
                     }}
                   />
-                  <h2 className="font-bold text-navy text-sm truncate flex-1">
-                    {rotaAtiva.name}
-                  </h2>
+                  {rotaAtiva.url ? (
+                    <a
+                      href={rotaAtiva.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-bold text-navy text-sm truncate flex-1 hover:underline"
+                    >
+                      {rotaAtiva.name}
+                    </a>
+                  ) : (
+                    <h2 className="font-bold text-navy text-sm truncate flex-1">
+                      {rotaAtiva.name}
+                    </h2>
+                  )}
                   <button
                     onClick={() => setRotaAtiva(null)}
                     className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded hover:bg-gray-200"

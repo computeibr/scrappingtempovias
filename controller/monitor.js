@@ -93,6 +93,7 @@ router.get('/', eAdmin, async (req, res) => {
         return {
           id: rota.id,
           nome: rota.name,
+          url: rota.url,
           leituraAtual: {
             tempo: ultima.tempo,
             tempoMinutos: tempoAtualMin,

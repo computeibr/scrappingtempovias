@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { format, parseISO, addDays } from 'date-fns';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import api from '../../services/api';
 import Navbar from '../../components/Navbar';
@@ -68,8 +68,8 @@ export default function Feriados() {
   }
 
   const formatarData = (iso) => {
-    // YYYY-MM-DD vem como string — parseISO trata como UTC, addDays(1) corrige offset BR
-    const d = addDays(parseISO(iso), 1);
+    // Adiciona horário meio-dia para evitar variação de fuso ao parsear YYYY-MM-DD
+    const d = new Date(iso + 'T12:00:00');
     return format(d, "dd/MM/yyyy (EEEE)", { locale: ptBR });
   };
 
