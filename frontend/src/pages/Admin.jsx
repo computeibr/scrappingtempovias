@@ -367,7 +367,14 @@ export default function Admin() {
                 <li key={rota.id} className="py-3 flex items-start justify-between gap-4">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium text-gray-800">{rota.name}</p>
+                      <a
+                        href={rota.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-medium text-[#004A80] hover:underline"
+                      >
+                        {rota.name}
+                      </a>
                       {rota.geometry ? (
                         <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: '#DCFCE7', color: '#166534' }}>
                           traçado ok
@@ -378,7 +385,14 @@ export default function Admin() {
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-gray-400 truncate">{rota.url}</p>
+                    <a
+                      href={rota.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-gray-400 hover:text-[#004A80] truncate block"
+                    >
+                      {rota.url}
+                    </a>
                   </div>
                   <div className="flex gap-2 flex-shrink-0">
                     <button
