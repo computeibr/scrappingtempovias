@@ -31,11 +31,11 @@ module.exports = {
 
       return next();
     } catch (err) {
-      console.log(err);
-      return res.status(400).json({
-
+      const motivo = err.name === 'TokenExpiredError' ? 'token expirado' : 'token inválido';
+      console.log(`Auth rejeitada — ${motivo} (${req.method} ${req.path})`);
+      return res.status(401).json({
         erro: true,
-        mensagem: 'Erro: Necessário realizar o login para acessar a página!',
+        mensagem: 'Sessão expirada. Faça login novamente.',
       });
     }
   },
