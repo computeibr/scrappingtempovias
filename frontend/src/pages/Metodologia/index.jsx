@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AppShell from '../../components/AppShell';
 
 // ─── Conteúdo da biblioteca embutido no frontend ─────────────────────────────
@@ -342,36 +342,6 @@ function renderBloco(bloco, i) {
   return Comp ? <Comp key={i} bloco={bloco} /> : null;
 }
 
-// ─── Componente de seção com accordion ───────────────────────────────────────
-
-function Secao({ secao }) {
-  const [aberta, setAberta] = useState(false);
-
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-      <button
-        onClick={() => setAberta((v) => !v)}
-        className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-gray-50 transition-colors"
-      >
-        <span className="text-2xl flex-shrink-0">{secao.icone}</span>
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-[#004A80] text-sm">{secao.titulo}</p>
-          <p className="text-xs text-gray-400 mt-0.5">{secao.resumo}</p>
-        </div>
-        <span className={`text-gray-400 flex-shrink-0 text-lg transition-transform duration-200 ${aberta ? 'rotate-180' : ''}`}>
-          ▾
-        </span>
-      </button>
-
-      {aberta && (
-        <div className="px-5 pb-5 border-t border-gray-100 space-y-4 pt-4">
-          {secao.blocos.map((bloco, i) => renderBloco(bloco, i))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 export default function Metodologia() {
@@ -422,8 +392,7 @@ export default function Metodologia() {
 function SecaoControlada({ secao, forceOpen }) {
   const [aberta, setAberta] = useState(forceOpen);
 
-  // Sincroniza quando o botão "Expandir tudo" muda
-  useState(() => { setAberta(forceOpen); });
+  useEffect(() => { setAberta(forceOpen); }, [forceOpen]);
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">

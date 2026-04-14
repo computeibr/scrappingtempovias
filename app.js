@@ -8,6 +8,7 @@ const auth = require('./controller/auth');
 const dashboard = require('./controller/dashboard');
 const monitor = require('./controller/monitor');
 const feriados = require('./controller/feriados');
+const health = require('./controller/health');
 
 const app = express();
 
@@ -30,6 +31,7 @@ app.use('/api/auth', auth);
 app.use('/api/dashboard', dashboard);
 app.use('/api/monitor', monitor);
 app.use('/api/feriados', feriados);
+app.use('/api/health', health);
 app.use('/api/rotas', rotasvia);
 
 // Serve o frontend (build do Vite) em produção

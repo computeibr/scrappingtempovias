@@ -5,9 +5,49 @@ const cron = require('node-cron');
 const { Op } = require("sequelize");
 const puppeteer = require('puppeteer');
 const { stringify } = require('querystring');
+const nodemailer = require('nodemailer');
 const TempoVias = require('../models/tempovias');
 const Rotasvia = require('../models/rotasvia');
 const fs = require('fs');
+
+// ─── Controle de alertas ─────────────────────────────────────────────────────
+let falhasConsecutivas = 0;
+let alertaJaEnviado = false;
+
+async function enviarAlertaEmail(mensagem) {
+  if (!process.env.ALERT_EMAIL || !process.env.ALERT_EMAIL_PASS) return;
+  if (alertaJaEnviado) return;
+  alertaJaEnviado = true;
+
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: process.env.ALERT_EMAIL, pass: process.env.ALERT_EMAIL_PASS },
+  });
+
+  const agora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+
+  try {
+    await transporter.sendMail({
+      from: `"Tempovias Monitor" <${process.env.ALERT_EMAIL}>`,
+      to: process.env.ALERT_EMAIL_TO || process.env.ALERT_EMAIL,
+      subject: '⚠️ Tempovias — Scraping com falha',
+      text: [
+        'Alerta gerado automaticamente pelo Tempovias.',
+        '',
+        `Data/hora: ${agora}`,
+        `Falhas consecutivas: ${falhasConsecutivas}`,
+        '',
+        'Erro:',
+        mensagem,
+        '',
+        'Verifique os logs com: pm2 logs my-app',
+      ].join('\n'),
+    });
+    console.log('Alerta de falha enviado por e-mail.');
+  } catch (err) {
+    console.error('Falha ao enviar alerta de e-mail:', err.message);
+  }
+}
 
 // Função para obter o tempo de viagem de uma determinada rota
 const getTempoVias = async (page, url, name, viaId) => {
@@ -80,11 +120,17 @@ const agendamentoDefinido = async () => {
     for (const rota of vias.data.rotasvias) {
       await getTempoVias(page, rota.url, rota.name, rota.id);
     }
-    
-    console.log("--------------------------------------Processamento das rotas concluído com sucesso.----------------------------------------");
+
+    falhasConsecutivas = 0;
+    alertaJaEnviado = false;
+    console.log('Processamento das rotas concluído com sucesso.');
 
   } catch (error) {
-    console.error("Erro ao obter rotas ou processar URLs:", error);
+    falhasConsecutivas++;
+    console.error(`Erro ao obter rotas ou processar URLs (falha ${falhasConsecutivas}):`, error.message);
+    if (falhasConsecutivas >= 3) {
+      await enviarAlertaEmail(error.message || String(error));
+    }
   } finally {
     if (browser) {
       await browser.close();

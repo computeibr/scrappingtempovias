@@ -497,3 +497,178 @@ A cada novo `git push` para `main`, o EasyPanel detecta automaticamente e faz o 
 - O `init.sql` é executado automaticamente pelo container do PostgreSQL apenas na **primeira inicialização** (quando o volume está vazio).
 - As cores da interface seguem o **Manual de Marca da Prefeitura do Rio de Janeiro (2022)**:
   - Azul marinho primário `#004A80`, azul celeste `#00C0F3`, laranja `#E95F3E`.
+
+---
+
+## Contexto de Desenvolvimento
+
+> **Instrução mestre para o assistente de IA.** Esta seção consolida todas as decisões de produto, arquitetura e padrões de código acordados ao longo do desenvolvimento. Ao receber uma nova tarefa, consulte este contexto antes de qualquer implementação.
+
+---
+
+### Modelo de negócios
+
+O sistema atende à **CETRIO / Prefeitura do Rio de Janeiro** com o objetivo de monitorar o trânsito em rotas urbanas de forma contínua e automatizada.
+
+**Dois ambientes, um banco:**
+
+| Ambiente | Função | Tecnologia | ETL_ENABLED |
+|---|---|---|---|
+| Máquina local do cliente | Scraping a cada 5 min + backend + frontend | Node.js + PM2 + Windows | `true` |
+| VPS (EasyPanel) | Backend + frontend apenas (sem scraping) | Docker + Node.js | `false` (padrão no Dockerfile) |
+
+- A máquina local coleta e salva os dados. A VPS apenas exibe. Ambos usam o **mesmo PostgreSQL** na VPS.
+- PM2 + `pm2-windows-startup` garante que o scraping recomece automaticamente após quedas de energia na máquina local.
+- A variável `ETL_ENABLED` controla isso — **nunca remover essa verificação do `app.js`**.
+
+---
+
+### Regras de negócio consolidadas
+
+#### Perfis de usuário
+- `perfilId = 1` → Usuário comum (visualização)
+- `perfilId = 99` → Administrador (cadastrar rotas, feriados, editar/remover)
+- Operações destrutivas e de cadastro **sempre** verificadas via middleware `acl([99])`
+
+#### Cálculo de variação (Monitor)
+```
+variação (%) = ((tempo_atual − média_histórica) / média_histórica) × 100
+```
+- **Janela histórica:** últimas 3 semanas (21 dias)
+- **Filtros obrigatórios:** mesma hora do dia + mesmo dia da semana + excluir `dias_nao_uteis`
+- **Tolerância:** ±5% (evita falso positivo por variação natural)
+- **Status resultante:**
+  - `acima` → variação > +5% (vermelho `#E51B23`)
+  - `normal` → variação entre -5% e +5% (cinza)
+  - `abaixo` → variação < -5% (verde `#34973B`)
+  - `sem_historico` → menos de 1 leitura histórica disponível
+  - `sem_dados` → nenhuma leitura recente da rota
+
+#### Dias não úteis
+- Tabela `dias_nao_uteis`: id, data (DATE UNIQUE), descricao, tipo
+- Tipos: `feriado_nacional`, `feriado_municipal`, `ponto_facultativo`
+- Excluídos do cálculo de médias no Monitor e na Metodologia
+- Listagem visível a todos os usuários autenticados; cadastro/remoção somente admin
+- Pré-populada com feriados 2025/2026 do Rio de Janeiro via `init.sql`
+
+#### Nomes de rota são links
+- Em **todos** os lugares onde o nome de uma rota é exibido, ele deve ser um `<a>` clicável que abre a URL do Google Maps em nova aba (`target="_blank"`).
+- Isso vale para: Dashboard (sidebar + painel de análise), Monitor (cards), Admin (lista de rotas).
+
+#### Schema de banco
+- **Nunca usar `.sync({ force: true })` ou `.sync({ alter: true })`** — todos os `.sync()` estão comentados.
+- O schema é criado exclusivamente pelo `init.sql` na primeira inicialização do container PostgreSQL.
+- Novos campos/tabelas devem ser adicionados ao `init.sql` E ao `init.sql` de migração manual quando aplicável.
+
+---
+
+### Padrões de código
+
+#### Datas e fusos
+- **Backend:** usar `luxon` (Luxon) — nunca `moment` em código novo.
+- **Frontend:** usar `date-fns` + `Date` nativa — **luxon NÃO está instalado no frontend** e causará erro de build.
+- Datas ISO `YYYY-MM-DD` vindas do banco devem ser parseadas com `new Date(iso + 'T12:00:00')` no frontend para evitar variação de fuso UTC que deslocaria o dia.
+- Timestamps de leitura: `new Date(ts).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })`.
+
+#### Sequelize / banco
+- Dialect: `postgres` (migração do SQL Server concluída)
+- SSL controlado por `DB_SSL` no `.env` — nunca hardcodar
+- Todos os modelos em `models/` — nunca criar lógica de banco em controllers
+
+#### Autenticação
+- JWT armazenado em `localStorage` com chaves `tv_token` e `tv_user`
+- Middleware `eAdmin` em `middlewares/auth.js` — popula `req.userId`
+- Middleware `acl` em `middlewares/acl.js` — verifica `perfilId`
+
+---
+
+### Arquitetura do frontend
+
+#### AppShell — layout central
+Todos os componentes de página autenticada são envolvidos por `<AppShell>`. **Nunca criar layout de navegação fora do AppShell.**
+
+```
+AppShell
+├── <aside> — Sidebar (w-56, fundo #004A80)
+│   ├── Logo (LogoIcon — pin SVG) + nome "Tempovias" + subtítulo CETRIO
+│   ├── Botão fechar (mobile apenas, md:hidden)
+│   ├── <nav> — NavItem × N (renderiza items ou ALL_NAV_ITEMS)
+│   └── Bloco usuário — avatar inicial + nome + link "Sair"
+├── Overlay escuro (mobile, fixed inset-0 z-30, fecha ao clicar)
+└── <div> principal
+    ├── <header> (mobile apenas, md:hidden) — LogoIcon + título + avatar
+    └── <div> flex-1 — {children}
+```
+
+**Constantes de módulo (não recalcular no render):**
+- `NAV_ITEMS` — itens para todos os usuários
+- `ADMIN_ITEMS` — itens exclusivos de admin
+- `ALL_NAV_ITEMS = [...NAV_ITEMS, ...ADMIN_ITEMS]` — combinação pré-computada
+- `LogoIcon` — componente SVG do pin do mapa (reutilizado na sidebar e no mobile header)
+
+**Lógica de `isActive(to)`:**
+- `/` → `pathname === '/'` (match exato)
+- qualquer outro → `pathname.startsWith(to)`
+
+**Comportamento mobile:**
+- `navOpen` (useState) controla o drawer
+- Sidebar: `fixed inset-y-0 left-0 z-40 w-56`, `-translate-x-full` quando fechada, `translate-x-0` quando aberta
+- Desktop: `md:relative md:translate-x-0` — sempre visível
+
+#### Estrutura de páginas
+
+| Página | Arquivo | Acesso |
+|---|---|---|
+| Dashboard | `pages/Dashboard.jsx` | Autenticado |
+| Monitor | `pages/Monitor/index.jsx` + `RouteCard.jsx` | Autenticado |
+| Feriados | `pages/Feriados/index.jsx` | Autenticado (CRUD somente admin) |
+| Metodologia | `pages/Metodologia/index.jsx` | Autenticado |
+| Admin | `pages/Admin.jsx` | perfilId=99 |
+| Login | `pages/Login.jsx` | Público |
+
+#### Monitor — comportamento esperado
+- Auto-refresh a cada **120 segundos** com countdown regressivo visível
+- Cards ordenáveis por **variação** (padrão, maior desvio primeiro) ou **ordem alfabética**
+- Cards de resumo: contagem de rotas `acima` / `normal` / `abaixo`
+- Nome da rota no card é link clicável para o Google Maps
+
+#### Metodologia — comportamento esperado
+- Accordion — cada seção (`SecaoControlada`) controla seu próprio estado
+- Botão "Expandir tudo" usa `useState(false)` no componente pai + `useEffect(() => { setAberta(forceOpen); }, [forceOpen])` em cada `SecaoControlada`
+- O `key={expandirTodos}` no container de seções força remount ao alternar — complemento ao useEffect
+- Conteúdo embutido em `SECOES` (constante no próprio arquivo) — fonte de verdade em `biblioteca/*.md`
+
+---
+
+### Identidade visual (obrigatória)
+
+Todas as telas seguem o **Manual de Marca da Prefeitura do Rio de Janeiro (2022)**:
+
+| Token | Hex | Uso |
+|---|---|---|
+| Azul marinho primário | `#004A80` | Header, sidebar, títulos, botões primários |
+| Azul marinho escuro | `#13335A` | Hover, subtítulos |
+| Azul celeste (accent) | `#00C0F3` | Destaques, borda ativa no nav |
+| Laranja | `#E95F3E` | Alertas |
+| Vermelho | `#E51B23` | Status "acima", erros, botão remover |
+| Verde | `#34973B` | Status "abaixo", sucesso |
+| Amarelo | `#F9C600` | Avisos, ponto facultativo |
+| Fundo | `#F0F0F0` | Background da aplicação |
+| Texto | `#1D1D1B` | Corpo de texto |
+
+**Nunca usar cores arbitrárias** — sempre referenciar esta paleta.
+
+---
+
+### Regras de desenvolvimento (padrões de IA)
+
+1. **Não criar abstrações especulativas** — implementar apenas o que foi pedido.
+2. **Não adicionar error handling para cenários impossíveis** — confiar nos middlewares e no framework.
+3. **Não usar `.sync()` no Sequelize** — schema é responsabilidade do `init.sql`.
+4. **Não usar luxon no frontend** — usar `date-fns` e `Date` nativa.
+5. **Não criar arquivos de documentação (`.md`)** a menos que explicitamente solicitado.
+6. **Não adicionar comentários óbvios** — apenas comentar lógica não evidente.
+7. **Nunca commitar `.env`** — apenas `.env.example`.
+8. **Nomes de rota sempre clicáveis** — todo `rota.name` deve ser `<a href={rota.url}>` quando `rota.url` existir.
+9. **Mobile-first** — toda nova página deve funcionar como app no celular (AppShell já resolve o layout base).
+10. **Perguntar antes de ações destrutivas** (delete de rotas/feriados usa `confirm()` no browser).

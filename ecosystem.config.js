@@ -1,8 +1,8 @@
 module.exports = {
   apps: [{
     name: "my-app",
-    script: "./start.js",
-    instances: 1,
+    script: "./app.js",
+    exec_mode: "fork",
     autorestart: true,
     watch: false,
     max_memory_restart: "1G",
