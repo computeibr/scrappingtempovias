@@ -1,16 +1,16 @@
 require('dotenv').config();
 const axios = require('axios');
-const sequelize = require("sequelize");
 const cron = require('node-cron');
-const { Op } = require("sequelize");
 const puppeteer = require('puppeteer');
-const { stringify } = require('querystring');
 const nodemailer = require('nodemailer');
 const TempoVias = require('../models/tempovias');
-const Rotasvia = require('../models/rotasvia');
-const fs = require('fs');
 
-// ─── Controle de alertas ─────────────────────────────────────────────────────
+// Número de abas paralelas — ajuste conforme os recursos da máquina:
+//   2 vCPU /  8 GB → ETL_CONCURRENCY=8
+//   4 vCPU / 16 GB → ETL_CONCURRENCY=15
+const CONCURRENCY = parseInt(process.env.ETL_CONCURRENCY || '8', 10);
+
+// ─── Alertas ─────────────────────────────────────────────────────────────────
 let falhasConsecutivas = 0;
 let alertaJaEnviado = false;
 
@@ -49,60 +49,77 @@ async function enviarAlertaEmail(mensagem) {
   }
 }
 
-// Função para obter o tempo de viagem de uma determinada rota
-const getTempoVias = async (page, url, name, viaId) => {
-  const maxRetries = 2;
-  // Garante modo carro (driving) na URL
-  const urlFinal = url.includes('travelmode=') ? url : url + (url.includes('?') ? '&' : '?') + 'travelmode=driving';
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+// ─── Scraping de uma rota (roda em uma aba já aberta) ────────────────────────
+async function getTempoVias(page, url, name, viaId) {
+  const urlFinal = url.includes('travelmode=')
+    ? url
+    : url + (url.includes('?') ? '&' : '?') + 'travelmode=driving';
+
+  for (let attempt = 1; attempt <= 2; attempt++) {
     try {
-//      console.log(`Tentativa ${attempt} para navegar até a Rota: ${name}`);
-      await page.goto(urlFinal, { waitUntil: 'networkidle2', timeout: 60000 }); // Aumenta o timeout para 60 segundos
+      await page.goto(urlFinal, { waitUntil: 'networkidle2', timeout: 60000 });
 
       await page.waitForXPath("//div[contains(text(), 'min') or contains(text(), 'h')]", { timeout: 60000 });
       await page.waitForXPath("//div[contains(text(), 'km')]", { timeout: 60000 });
 
-      // Seleciona o tempo: exclui texto dentro de <button> (tabs de modo moto/bicicleta/ônibus)
-      // Prioriza elementos de div que não são filhos de botão e têm texto curto tipo "23 min" ou "1 h 10 min"
       const minElement = await page.$x(
         "//div[not(ancestor::button) and not(ancestor::li[contains(@class,'modes')]) " +
         "and (contains(text(),' min') or (contains(text(),' h ') and contains(text(),'min'))) " +
         "and string-length(normalize-space(text())) < 20]"
       );
-      const minTime = await page.evaluate(element => element.textContent.trim(), minElement[0]);
+      const minTime = await page.evaluate(el => el.textContent.trim(), minElement[0]);
 
       const kmElement = await page.$x(
         "//div[not(ancestor::button) and contains(text(),' km') and string-length(normalize-space(text())) < 15]"
       );
-      const km = await page.evaluate(element => element.textContent.trim(), kmElement[0]);
+      const km = await page.evaluate(el => el.textContent.trim(), kmElement[0]);
 
-      console.log(`Id: ${viaId} | Nome: ${name} | Tempo capturado: "${minTime}" | km: "${km}"`);
+      console.log(`Id: ${viaId} | Nome: ${name} | Tempo: "${minTime}" | km: "${km}"`);
 
-      // Insere os dados obtidos no banco de dados usando o Sequelize
       await TempoVias.create({
         nomedarota: name,
         tempo: minTime.toString(),
         km: km.toString(),
         leitura: new Date(),
-        viaId: viaId
+        viaId,
       });
-      break; // Sai do loop de re-tentativas em caso de sucesso
+      return; // sucesso
     } catch (error) {
-      console.error(`Erro ao processar a URL ${name} na tentativa ${attempt}:`, error);
-      if (attempt === maxRetries) {
-        console.error(`Falha permanente ao processar a URL ${name} após ${maxRetries} tentativas.`);
+      if (attempt < 2) {
+        console.log(`Tentando novamente: ${name}`);
       } else {
-        console.log(`Tentando novamente...`);
+        console.error(`Falha permanente: ${name} — ${error.message}`);
       }
     }
   }
-};
-sequelize.cls
-// Função para executar o agendamento definido
-const agendamentoDefinido = async () => {
+}
+
+// ─── Processa uma lista de rotas em uma aba dedicada ─────────────────────────
+async function processarLote(browser, rotas) {
+  const page = await browser.newPage();
+  try {
+    for (const rota of rotas) {
+      await getTempoVias(page, rota.url, rota.name, rota.id);
+    }
+  } finally {
+    await page.close();
+  }
+}
+
+// ─── Ciclo principal ──────────────────────────────────────────────────────────
+async function agendamentoDefinido() {
   let browser;
   try {
-    const vias = await axios.get('http://localhost:3001/rota/rotasvia');
+    const { data } = await axios.get('http://localhost:3001/rota/rotasvia');
+    const rotas = data.rotasvias;
+
+    // Divide as rotas em lotes iguais (um lote por aba paralela)
+    const lotes = Array.from({ length: CONCURRENCY }, (_, i) =>
+      rotas.filter((_, idx) => idx % CONCURRENCY === i)
+    ).filter(l => l.length > 0);
+
+    const inicio = Date.now();
+    console.log(`Iniciando ciclo: ${rotas.length} rotas em ${lotes.length} abas paralelas.`);
 
     browser = await puppeteer.launch({
       headless: 'new',
@@ -115,49 +132,41 @@ const agendamentoDefinido = async () => {
         '--no-zygote',
       ],
     });
-    const page = await browser.newPage();
 
-    for (const rota of vias.data.rotasvias) {
-      await getTempoVias(page, rota.url, rota.name, rota.id);
-    }
+    await Promise.all(lotes.map(lote => processarLote(browser, lote)));
+
+    const segundos = ((Date.now() - inicio) / 1000).toFixed(1);
+    console.log(`Ciclo concluído em ${segundos}s (${rotas.length} rotas, ${CONCURRENCY} abas).`);
 
     falhasConsecutivas = 0;
     alertaJaEnviado = false;
-    console.log('Processamento das rotas concluído com sucesso.');
 
   } catch (error) {
     falhasConsecutivas++;
-    console.error(`Erro ao obter rotas ou processar URLs (falha ${falhasConsecutivas}):`, error.message);
+    console.error(`Erro no ciclo de scraping (falha ${falhasConsecutivas}):`, error.message);
     if (falhasConsecutivas >= 3) {
       await enviarAlertaEmail(error.message || String(error));
     }
   } finally {
-    if (browser) {
-      await browser.close();
-    }
+    if (browser) await browser.close();
   }
-};
+}
 
-// Agendamento de uma tarefa cron para ser executada a cada 5 minutos
-let isRunning = false; // Flag para controlar o estado da execução
+// ─── Cron ─────────────────────────────────────────────────────────────────────
+let isRunning = false;
 
 cron.schedule('*/5 * * * *', async () => {
   if (isRunning) {
-    console.log('O cron ainda está em execução. Ignorando nova execução.');
+    console.log('Ciclo anterior ainda em execução. Aguardando próximo tick.');
     return;
   }
-
-  isRunning = true; // Define como em execução
-
+  isRunning = true;
   try {
-    await agendamentoDefinido(); // Sua função assíncrona
-    console.log('Agendamento concluído com sucesso.');
-  } catch (error) {
-    console.error("Erro ao executar o agendamento:", error);
+    await agendamentoDefinido();
   } finally {
-    isRunning = false; // Libera o flag ao final da execução
+    isRunning = false;
   }
-}, null, true, 'America/Sao_Paulo');
+}, { timezone: 'America/Sao_Paulo' });
 
-// Chama a função de agendamento para executar o código imediatamente
+// Executa imediatamente ao iniciar
 agendamentoDefinido();
