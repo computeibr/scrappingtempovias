@@ -6,44 +6,48 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 ## Stack
 - **Backend:** Node.js + Express + Sequelize + node-cron + Puppeteer
 - **Frontend:** React 18 + Vite + Tailwind CSS + Recharts + @react-google-maps/api
-- **Banco:** **PostgreSQL** (migração do SQL Server concluída — `models/db.js` já usa dialect `postgres`)
+- **Banco:** **PostgreSQL** (`models/db.js` usa dialect `postgres`)
 - **Processo:** **Docker + EasyPanel** (produção) | PM2/nodemon (desenvolvimento local)
-- **Auth:** JWT (bcryptjs + jsonwebtoken), middleware `eAdmin` em `middlewares/auth.js`
+- **Auth:** JWT (bcryptjs + jsonwebtoken); dois middlewares: `eAdmin` (qualquer logado) e `soAdmin` (perfilId=99) em `middlewares/auth.js`
 - **Datas/Fuso:** `luxon` (principal — dashboard e filtros) + `moment` (legado em alguns helpers)
 
 ## Estrutura de pastas
 ```
 /                       ← backend Express (porta 3001)
-├── app.js              ← entry point, serve frontend/dist em produção
+├── app.js              ← entry point; ETL carregado condicionalmente via ETL_ENABLED=true
 ├── Dockerfile          ← multi-stage: node:18-alpine build + Chromium para Puppeteer
 ├── docker-compose.yml  ← serviços: postgres:15-alpine + app (depends_on healthy)
 ├── init.sql            ← cria tabelas e índice na primeira inicialização do Postgres
 ├── controller/
-│   ├── etl.js          ← scraping + cron job a cada 5 min (roda imediatamente no start)
-│   ├── auth.js         ← POST /api/auth/login + /criar-usuario
+│   ├── etl.js          ← scraping paralelo com worker pool; cron a cada 5 min + execução imediata
+│   ├── auth.js         ← login, criar-usuario, CRUD de usuários (GET/PUT/DELETE /api/auth/usuarios)
 │   ├── dashboard.js    ← GET /api/dashboard/resumo|rotas|historico/:id|snapshot|ultimas/:id
-│   └── rotasvia.js     ← GET /rota/rotasvia e /api/rotas (legado, usado pelo scraper)
+│   └── rotasvia.js     ← CRUD de rotas (GET livre; POST=logado; PUT/DELETE=soAdmin)
 ├── models/
-│   ├── db.js           ← Sequelize com dialect postgres; suporte a DB_SSL via env
+│   ├── db.js           ← Sequelize dialect postgres; suporte a DB_SSL via env
 │   ├── User.js         ← tabela users
 │   ├── rotasvia.js     ← tabela tv_tempo_via (id, name, url, geometry)
 │   └── tempovias.js    ← tabela tempovias (id, viaId FK, nomedarota, tempo, km, leitura, urlfoto)
 ├── middlewares/
-│   ├── auth.js         ← verifica JWT, popula req.userId e req.locals.role
-│   └── acl.js          ← controle por perfilId (99 = admin)
+│   ├── auth.js         ← eAdmin (JWT válido, qualquer perfil) + soAdmin (JWT + perfilId=99)
+│   └── acl.js          ← helper por lista de perfilIds (menos usado)
 └── frontend/           ← React + Vite (porta 3000 no dev)
     ├── src/
     │   ├── pages/Login.jsx
     │   ├── pages/Dashboard.jsx
-    │   ├── components/Navbar.jsx
-    │   ├── components/Sidebar.jsx      ← lista de rotas com toggle
-    │   ├── components/RouteMap.jsx     ← Google Maps + DirectionsService
-    │   ├── components/TimeChart.jsx    ← Recharts média/hora + banda min-max
+    │   ├── pages/Admin.jsx         ← CRUD de rotas (criar/listar para User 2+; editar/remover só Admin)
+    │   ├── pages/Usuarios.jsx      ← CRUD de usuários (só Admin 99)
+    │   ├── pages/Monitor/
+    │   ├── pages/Feriados/
+    │   ├── pages/Metodologia/
+    │   ├── components/AppShell.jsx ← shell principal: sidebar com nav por perfil + header mobile
+    │   ├── components/RouteMap.jsx ← Google Maps + DirectionsService
+    │   ├── components/TimeChart.jsx
     │   ├── components/StatsCards.jsx
-    │   ├── components/FilterPanel.jsx  ← datepicker + dias da semana
-    │   ├── contexts/AuthContext.jsx    ← JWT no localStorage (tv_token, tv_user)
-    │   ├── services/api.js             ← axios com interceptors JWT
-    │   └── utils/mapUtils.js           ← parser de URLs do Google Maps
+    │   ├── components/FilterPanel.jsx
+    │   ├── contexts/AuthContext.jsx ← JWT no localStorage (tv_token, tv_user)
+    │   ├── services/api.js          ← axios com interceptors JWT
+    │   └── utils/mapUtils.js        ← parser de URLs do Google Maps
     └── .env.example    ← VITE_GOOGLE_MAPS_KEY
 ```
 
@@ -52,22 +56,40 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 |---|---|
 | `tv_tempo_via` | Rotas cadastradas: id, name, url, geometry (traçado da rota), createdAt, updatedAt |
 | `tempovias` | Histórico: id, viaId (FK), nomedarota, tempo, km, leitura (timestamp), urlfoto, createdAt, updatedAt |
-| `users` | Usuários: id, name, email, password (bcrypt), perfilId (1=user, 99=admin), createdAt, updatedAt |
+| `users` | Usuários: id, name, email, password (bcrypt), perfilId (1=View, 2=User, 99=Admin), createdAt, updatedAt |
 
 > Todos os `.sync()` estão **comentados** — o Sequelize não cria/altera tabelas automaticamente.
 > O schema é criado pelo `init.sql` na primeira vez que o container do PostgreSQL sobe.
+
+## Controle de acesso (ACL)
+| perfilId | Nome | Acesso |
+|----------|------|--------|
+| 1 | View | Dashboard apenas (somente leitura) |
+| 2 | User | Dashboard + Gerenciar Rotas (criar e visualizar; sem editar/remover) |
+| 99 | Admin | Acesso total: dashboard, CRUD completo de rotas e CRUD de usuários |
+
+- Sidebar (`AppShell.jsx`) exibe itens de acordo com o perfil
+- `Admin.jsx` redireciona para `/` se `perfilId < 2`
+- `Usuarios.jsx` redireciona para `/` se `perfilId !== 99`
+- Backend: `PUT /rotasvia/:id` e `DELETE /rotasvia/:id` exigem `soAdmin`
 
 ## Endpoints da API
 | Método | Rota | Auth | Descrição |
 |--------|------|------|-----------|
 | POST | `/api/auth/login` | — | Autenticação, retorna JWT |
-| POST | `/api/auth/criar-usuario` | — | Cria novo usuário |
-| GET | `/api/dashboard/resumo` | JWT | Contadores gerais (totalRotas, totalLeituras, hoje, semana) |
-| GET | `/api/dashboard/rotas` | JWT | Lista todas as rotas cadastradas |
-| GET | `/api/dashboard/historico/:id` | JWT | Médias por hora + evolução diária com filtros |
-| GET | `/api/dashboard/snapshot` | JWT | Última leitura de cada rota (para popup no mapa) |
-| GET | `/api/dashboard/ultimas/:id` | JWT | Últimas leituras com paginação |
-| GET | `/rota/rotasvia` ou `/api/rotas` | — | Legado — lista de rotas usada pelo scraper |
+| POST | `/api/auth/criar-usuario` | soAdmin | Cria novo usuário |
+| GET | `/api/auth/usuarios` | soAdmin | Lista todos os usuários |
+| PUT | `/api/auth/usuarios/:id` | soAdmin | Edita nome, e-mail, perfil e/ou senha |
+| DELETE | `/api/auth/usuarios/:id` | soAdmin | Remove usuário (não pode auto-remover) |
+| GET | `/api/dashboard/resumo` | eAdmin | Contadores gerais (totalRotas, totalLeituras, hoje, semana) |
+| GET | `/api/dashboard/rotas` | eAdmin | Lista todas as rotas cadastradas |
+| GET | `/api/dashboard/historico/:id` | eAdmin | Médias por hora + evolução diária com filtros |
+| GET | `/api/dashboard/snapshot` | eAdmin | Última leitura de cada rota (para popup no mapa) |
+| GET | `/api/dashboard/ultimas/:id` | eAdmin | Últimas leituras com paginação |
+| GET | `/api/rotas/rotasvia` ou `/rota/rotasvia` | — | Legado — lista de rotas usada pelo scraper |
+| POST | `/api/rotas/rotasvia` | eAdmin | Cadastra nova rota |
+| PUT | `/api/rotas/rotasvia/:id` | soAdmin | Edita rota (nome, URL, geometry) |
+| DELETE | `/api/rotas/rotasvia/:id` | soAdmin | Remove rota |
 
 **Parâmetros de `/historico/:id`:**
 - `dataInicio` / `dataFim` — `YYYY-MM-DD` (padrão: últimos 30 dias)
@@ -78,6 +100,14 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 - `page` — número da página (padrão: 1)
 - `limite` — registros por página (padrão: 20, máx: 100)
 - `dataInicio` / `dataFim` — filtro de período (ISO 8601)
+
+## ETL — scraping paralelo (`controller/etl.js`)
+- **Worker pool dinâmico**: até `CONCURRENCY` abas abertas simultaneamente; fila compartilhada com `Array.shift()` (seguro no event loop single-thread do Node)
+- **Execução imediata + cron**: roda ao iniciar e depois a cada 5 min; a chamada imediata usa o mesmo `isRunning = true` que o cron para evitar sobreposição
+- **Retry**: 2 tentativas por rota com backoff de 2s; erro descritivo se elemento XPath não for encontrado
+- **Dedup de segurança**: antes de cada insert, verifica se já existe leitura para o mesmo `viaId` nos últimos 3 min — barreira contra regressões no `isRunning`
+- **Alerta por e-mail**: após 3 falhas consecutivas envia e-mail via Nodemailer (Gmail)
+- **FAST_MODE**: `ETL_FAST_MODE=true` usa `domcontentloaded` + espera fixa de 3s em vez de `networkidle2`; mais rápido, monitore qualidade dos dados
 
 ## Variáveis de ambiente
 **`.env` (raiz — backend):**
@@ -90,6 +120,13 @@ DB_PASS=senha
 DB_HOST=host
 DB_PORT=5432
 DB_SSL=false
+ETL_ENABLED=true           # false desativa o scraping completamente
+ETL_CONCURRENCY=8          # abas paralelas (8 para 2vCPU/8GB; 15 para 4vCPU/16GB)
+ETL_TAB_DELAY=2000         # delay em ms entre abertura de cada aba (evita pico de CPU)
+ETL_FAST_MODE=false        # true = domcontentloaded+3s; false = networkidle2 (padrão)
+ALERT_EMAIL=               # Gmail remetente para alertas de falha
+ALERT_EMAIL_PASS=          # App password do Gmail
+ALERT_EMAIL_TO=            # Destinatário do alerta (padrão: mesmo que ALERT_EMAIL)
 ```
 **`frontend/.env`:**
 ```
@@ -110,8 +147,9 @@ Cores extraídas do `identidadevisual2022.pdf` (Manual de Marca Prefeitura Rio):
 - Rotas legadas (`/rota/rotasvia`) mantidas — o scraper interno depende delas
 - JWT armazenado em localStorage com chaves `tv_token` e `tv_user`
 - CORS configurado como `*` (aberto) — restringir em produção se necessário
-- etl.js executa `agendamentoDefinido()` imediatamente ao iniciar (além do cron a cada 5min)
-- Flag `isRunning` impede execuções paralelas do cron
+- `AppShell.jsx` é o shell principal com sidebar + header mobile; `Navbar.jsx` e `Sidebar.jsx` são legados não utilizados nas páginas atuais
+- ETL só é carregado se `ETL_ENABLED=true` (prevenção de scraping em ambiente de dev sem Docker)
+- `isRunning` protege contra sobreposição de ciclos no cron **e** na chamada imediata de startup
 
 ## Docker
 O `Dockerfile` usa **multi-stage build**:
@@ -127,7 +165,7 @@ Configuração Puppeteer no Docker:
 
 ---
 
-## PRÓXIMOS PASSOS (em andamento)
+## PRÓXIMOS PASSOS
 
 ### Deploy via Docker + EasyPanel
 1. [x] Atualizar `models/db.js` — dialect `postgres`, suporte a `DB_SSL` via env
@@ -136,9 +174,8 @@ Configuração Puppeteer no Docker:
 4. [x] Criar `init.sql` — cria as 3 tabelas + índice; executado automaticamente na primeira inicialização
 5. [x] Criar `.dockerignore`
 6. [x] Criar `.env.example` na raiz com variáveis do PostgreSQL
-7. [ ] Fazer `git push` e configurar no EasyPanel da VPS
-8. [ ] Criar primeiro usuário admin via API após deploy
-9. [ ] (Futuro) Migrar dados do SQL Server para PostgreSQL
+7. [x] Deploy no EasyPanel da VPS (em produção — scraping ativo)
+8. [ ] Migrar dados históricos do SQL Server para PostgreSQL (futuro)
 
 > O usuário não tem Docker localmente — todo ambiente roda na VPS via EasyPanel.
 > EasyPanel lê o `docker-compose.yml` do repositório Git.
@@ -153,5 +190,12 @@ DB_PASS=<senha forte>
 DB_HOST=postgres
 DB_PORT=5432
 DB_SSL=false
+ETL_ENABLED=true
+ETL_CONCURRENCY=8
+ETL_TAB_DELAY=2000
+ETL_FAST_MODE=false
 VITE_GOOGLE_MAPS_KEY=<chave Google Maps API>
+ALERT_EMAIL=<gmail>
+ALERT_EMAIL_PASS=<app password>
+ALERT_EMAIL_TO=<destinatário>
 ```

@@ -3,6 +3,7 @@ const axios = require('axios');
 const cron = require('node-cron');
 const puppeteer = require('puppeteer');
 const nodemailer = require('nodemailer');
+const { Op } = require('sequelize');
 const TempoVias = require('../models/tempovias');
 
 // Número de abas paralelas — ajuste conforme os recursos da máquina:
@@ -59,6 +60,18 @@ async function enviarAlertaEmail(mensagem) {
 
 // ─── Scraping de uma rota ─────────────────────────────────────────────────────
 async function getTempoVias(page, url, name, viaId) {
+  // Barreira de dedup: ignora se já existe leitura para esta rota nos últimos 3 min.
+  // Proteção secundária contra ciclos concorrentes causados por regressão no isRunning.
+  const recentCutoff = new Date(Date.now() - 3 * 60 * 1000);
+  const jaExiste = await TempoVias.findOne({
+    where: { viaId, leitura: { [Op.gte]: recentCutoff } },
+    attributes: ['id'],
+  });
+  if (jaExiste) {
+    console.log(`[dedup] ${name} — leitura recente já existe (id ${jaExiste.id}), ignorando.`);
+    return;
+  }
+
   const urlFinal = url.includes('travelmode=')
     ? url
     : url + (url.includes('?') ? '&' : '?') + 'travelmode=driving';
@@ -83,11 +96,13 @@ async function getTempoVias(page, url, name, viaId) {
         "and (contains(text(),' min') or (contains(text(),' h ') and contains(text(),'min'))) " +
         "and string-length(normalize-space(text())) < 20]"
       );
+      if (!minElement[0]) throw new Error(`Elemento de tempo não encontrado para "${name}"`);
       const minTime = await page.evaluate(el => el.textContent.trim(), minElement[0]);
 
       const kmElement = await page.$x(
         "//div[not(ancestor::button) and contains(text(),' km') and string-length(normalize-space(text())) < 15]"
       );
+      if (!kmElement[0]) throw new Error(`Elemento de distância não encontrado para "${name}"`);
       const km = await page.evaluate(el => el.textContent.trim(), kmElement[0]);
 
       console.log(`Id: ${viaId} | Nome: ${name} | Tempo: "${minTime}" | km: "${km}"`);
@@ -178,7 +193,7 @@ async function agendamentoDefinido() {
       await enviarAlertaEmail(error.message || String(error));
     }
   } finally {
-    if (browser) await browser.close();
+    if (browser) await browser.close().catch((err) => console.error('Erro ao fechar browser:', err.message));
   }
 }
 
