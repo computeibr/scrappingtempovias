@@ -3,6 +3,7 @@ const axios = require('axios');
 const cron = require('node-cron');
 const puppeteer = require('puppeteer');
 const nodemailer = require('nodemailer');
+const { Op } = require('sequelize');
 const TempoVias = require('../models/tempovias');
 
 // Número de abas paralelas — ajuste conforme os recursos da máquina:
@@ -93,6 +94,15 @@ async function getTempoVias(page, url, name, viaId) {
       const km = await page.evaluate(el => el.textContent.trim(), kmElement[0]);
 
       console.log(`Id: ${viaId} | Nome: ${name} | Tempo: "${minTime}" | km: "${km}"`);
+
+      const tresMinAtras = new Date(Date.now() - 3 * 60 * 1000);
+      const jaExiste = await TempoVias.findOne({
+        where: { viaId, leitura: { [Op.gte]: tresMinAtras } },
+      });
+      if (jaExiste) {
+        console.log(`Dedup: leitura recente já existe para "${name}" (viaId ${viaId}), pulando.`);
+        return;
+      }
 
       await TempoVias.create({
         nomedarota: name,
