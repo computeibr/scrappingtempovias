@@ -3,7 +3,6 @@ const axios = require('axios');
 const cron = require('node-cron');
 const puppeteer = require('puppeteer');
 const nodemailer = require('nodemailer');
-const { Op } = require('sequelize');
 const TempoVias = require('../models/tempovias');
 
 // Número de abas paralelas — ajuste conforme os recursos da máquina:
@@ -60,18 +59,6 @@ async function enviarAlertaEmail(mensagem) {
 
 // ─── Scraping de uma rota ─────────────────────────────────────────────────────
 async function getTempoVias(page, url, name, viaId) {
-  // Barreira de dedup: ignora se já existe leitura para esta rota nos últimos 3 min.
-  // Proteção secundária contra ciclos concorrentes causados por regressão no isRunning.
-  const recentCutoff = new Date(Date.now() - 3 * 60 * 1000);
-  const jaExiste = await TempoVias.findOne({
-    where: { viaId, leitura: { [Op.gte]: recentCutoff } },
-    attributes: ['id'],
-  });
-  if (jaExiste) {
-    console.log(`[dedup] ${name} — leitura recente já existe (id ${jaExiste.id}), ignorando.`);
-    return;
-  }
-
   const urlFinal = url.includes('travelmode=')
     ? url
     : url + (url.includes('?') ? '&' : '?') + 'travelmode=driving';
