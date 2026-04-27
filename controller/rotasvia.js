@@ -39,7 +39,7 @@ router.post("/rotasvia", eAdmin, async (req, res) => {
         .catch(() => res.status(400).json({ erro: true, mensagem: "Erro ao cadastrar rota." }));
 });
 
-router.put("/rotasvia/:id", eAdmin, async (req, res) => {
+router.put("/rotasvia/:id", soAdmin, async (req, res) => {
     const { id } = req.params;
     const { name, url, geometry } = req.body;
 

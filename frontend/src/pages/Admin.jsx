@@ -31,7 +31,7 @@ export default function Admin() {
   const [editando, setEditando] = useState(null);
 
   useEffect(() => {
-    if (user?.perfilId !== 99) {
+    if (!user || user.perfilId < 2) {
       navigate('/');
     } else {
       carregarRotas();
@@ -392,15 +392,15 @@ export default function Admin() {
                       {rota.url}
                     </a>
                   </div>
-                  <div className="flex gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => handleIniciarEdicao(rota)}
-                      className="text-xs px-3 py-1 rounded-lg border"
-                      style={{ borderColor: '#004A80', color: '#004A80' }}
-                    >
-                      Editar
-                    </button>
-                    {user?.perfilId === 99 && (
+                  {user?.perfilId === 99 && (
+                    <div className="flex gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => handleIniciarEdicao(rota)}
+                        className="text-xs px-3 py-1 rounded-lg border"
+                        style={{ borderColor: '#004A80', color: '#004A80' }}
+                      >
+                        Editar
+                      </button>
                       <button
                         onClick={() => handleRemover(rota.id, rota.name)}
                         className="text-xs px-3 py-1 rounded-lg border"
@@ -408,8 +408,8 @@ export default function Admin() {
                       >
                         Remover
                       </button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>

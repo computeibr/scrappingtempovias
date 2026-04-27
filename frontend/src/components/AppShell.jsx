@@ -64,12 +64,15 @@ const NAV_ITEMS = [
   { to: '/metodologia', label: 'Metodologia',     icon: Icons.book      },
 ];
 
-const ADMIN_ITEMS = [
-  { to: '/admin',    label: 'Gerenciar Rotas',    icon: Icons.route  },
-  { to: '/usuarios', label: 'Gerenciar Usuários', icon: Icons.users  },
+// Visível para User (2) e Admin (99)
+const USER_ITEMS = [
+  { to: '/admin', label: 'Gerenciar Rotas', icon: Icons.route },
 ];
 
-const ALL_NAV_ITEMS = [...NAV_ITEMS, ...ADMIN_ITEMS];
+// Visível apenas para Admin (99)
+const ADMIN_ONLY_ITEMS = [
+  { to: '/usuarios', label: 'Gerenciar Usuários', icon: Icons.users },
+];
 
 function NavItem({ item, active, onClick }) {
   return (
@@ -95,7 +98,12 @@ export default function AppShell({ children }) {
   const navigate = useNavigate();
 
   const isAdmin = user?.perfilId === 99;
-  const items = isAdmin ? ALL_NAV_ITEMS : NAV_ITEMS;
+  const isUser = user?.perfilId >= 2;
+  const items = [
+    ...NAV_ITEMS,
+    ...(isUser ? USER_ITEMS : []),
+    ...(isAdmin ? ADMIN_ONLY_ITEMS : []),
+  ];
   const avatarInitial = user?.name?.charAt(0)?.toUpperCase() || 'U';
 
   function handleLogout() {
