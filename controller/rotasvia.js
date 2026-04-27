@@ -7,7 +7,7 @@ const { Op } = require("sequelize");
 const bcrypt = require('bcryptjs');
 
 const Rotasvia = require('../models/rotasvia');
-const { eAdmin } = require('../middlewares/auth');
+const { eAdmin, soAdmin } = require('../middlewares/auth');
 
 
 router.get("/rotasvia", async (req, res) => {
@@ -55,7 +55,7 @@ router.put("/rotasvia/:id", eAdmin, async (req, res) => {
         .catch(() => res.status(400).json({ erro: true, mensagem: "Erro ao atualizar rota." }));
 });
 
-router.delete("/rotasvia/:id", eAdmin, async (req, res) => {
+router.delete("/rotasvia/:id", soAdmin, async (req, res) => {
     const { id } = req.params;
 
     await Rotasvia.destroy({ where: { id } })

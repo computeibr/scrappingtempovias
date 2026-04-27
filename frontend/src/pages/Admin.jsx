@@ -400,13 +400,15 @@ export default function Admin() {
                     >
                       Editar
                     </button>
-                    <button
-                      onClick={() => handleRemover(rota.id, rota.name)}
-                      className="text-xs px-3 py-1 rounded-lg border"
-                      style={{ borderColor: '#E51B23', color: '#E51B23' }}
-                    >
-                      Remover
-                    </button>
+                    {user?.perfilId === 99 && (
+                      <button
+                        onClick={() => handleRemover(rota.id, rota.name)}
+                        className="text-xs px-3 py-1 rounded-lg border"
+                        style={{ borderColor: '#E51B23', color: '#E51B23' }}
+                      >
+                        Remover
+                      </button>
+                    )}
                   </div>
                 </li>
               ))}
