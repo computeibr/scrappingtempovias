@@ -198,5 +198,13 @@ cron.schedule('*/5 * * * *', async () => {
   }
 }, { timezone: 'America/Sao_Paulo' });
 
-// Executa imediatamente ao iniciar
-agendamentoDefinido();
+// Executa imediatamente ao iniciar — usa o mesmo guard do cron para evitar
+// sobreposição caso o primeiro tick do cron dispare antes do ciclo inicial terminar.
+(async () => {
+  isRunning = true;
+  try {
+    await agendamentoDefinido();
+  } finally {
+    isRunning = false;
+  }
+})();
