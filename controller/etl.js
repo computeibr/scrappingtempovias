@@ -5,6 +5,10 @@ const puppeteer = require('puppeteer');
 const nodemailer = require('nodemailer');
 const { Op } = require('sequelize');
 const TempoVias = require('../models/tempovias');
+const sequelize = require('../models/db');
+
+// Chave arbitrária única para o advisory lock do PostgreSQL (identifica este processo ETL)
+const ETL_LOCK_KEY = 737465;
 
 // Número de abas paralelas — ajuste conforme os recursos da máquina:
 //   2 vCPU /  8 GB → ETL_CONCURRENCY=8
@@ -143,6 +147,16 @@ async function worker(browser, fila, id) {
 
 // ─── Ciclo principal ──────────────────────────────────────────────────────────
 async function agendamentoDefinido() {
+  // Advisory lock no PostgreSQL: garante que apenas um container rode o ETL por vez.
+  // pg_try_advisory_lock retorna false imediatamente se outro processo já tem a trava.
+  const [[{ acquired }]] = await sequelize.query(
+    `SELECT pg_try_advisory_lock(${ETL_LOCK_KEY}) AS acquired`
+  );
+  if (!acquired) {
+    console.log('ETL: outro processo está rodando. Ciclo ignorado.');
+    return;
+  }
+
   let browser;
   try {
     const { data } = await axios.get('http://localhost:3001/rota/rotasvia');
@@ -191,6 +205,7 @@ async function agendamentoDefinido() {
     }
   } finally {
     if (browser) await browser.close().catch((err) => console.error('Erro ao fechar browser:', err.message));
+    await sequelize.query(`SELECT pg_advisory_unlock(${ETL_LOCK_KEY})`).catch(() => {});
   }
 }
 
