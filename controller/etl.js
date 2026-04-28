@@ -134,6 +134,18 @@ async function getTempoVias(page, url, name, viaId) {
 // Isso evita que uma aba fique ociosa enquanto outra ainda processa rotas lentas.
 async function worker(browser, fila, id) {
   const page = await browser.newPage();
+
+  // Bloqueia recursos visuais desnecessários — o Maps só precisa de JS e XHR/fetch
+  // para calcular e renderizar os dados de tempo/km no DOM.
+  await page.setRequestInterception(true);
+  page.on('request', (req) => {
+    if (['image', 'font', 'stylesheet', 'media'].includes(req.resourceType())) {
+      req.abort();
+    } else {
+      req.continue();
+    }
+  });
+
   try {
     while (fila.length > 0) {
       const rota = fila.shift();
