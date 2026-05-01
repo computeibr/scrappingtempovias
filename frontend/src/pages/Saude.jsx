@@ -233,20 +233,34 @@ export default function Saude() {
                 {/* Memória do processo */}
                 <div>
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Memória Node.js</p>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     <div>
                       <div className="flex justify-between text-xs text-gray-600 mb-1">
                         <span>Heap usado</span>
-                        <span className="tabular-nums">{bytes(s.memoria.heapUsado)} / {bytes(s.memoria.heapTotal)}</span>
+                        <span className="tabular-nums">
+                          {bytes(s.memoria.heapUsado)} / {bytes(s.memoria.heapLimite)}
+                        </span>
                       </div>
-                      <Barra valor={s.memoria.heapUsado} total={s.memoria.heapTotal} cor="#004A80" />
+                      <Barra valor={s.memoria.heapUsado} total={s.memoria.heapLimite} cor="#004A80" />
+                      <p className="text-xs text-gray-400 mt-1">
+                        Alocado agora: {bytes(s.memoria.heapTotal)} — V8 expande automaticamente até o limite
+                      </p>
                     </div>
                     <div>
                       <div className="flex justify-between text-xs text-gray-600 mb-1">
-                        <span>RSS (processo total)</span>
-                        <span className="tabular-nums">{bytes(s.memoria.rss)}</span>
+                        <span>RSS (processo completo)</span>
+                        <span className="tabular-nums">
+                          {bytes(s.memoria.rss)}
+                          {' '}
+                          <span className="text-gray-400">
+                            ({((s.memoria.rss / s.memoria.sistemaTotal) * 100).toFixed(1)}% da RAM)
+                          </span>
+                        </span>
                       </div>
                       <Barra valor={s.memoria.rss} total={s.memoria.sistemaTotal} cor="#00C0F3" />
+                      <p className="text-xs text-gray-400 mt-1">
+                        Inclui heap + buffers + libs nativas do Node.js
+                      </p>
                     </div>
                   </div>
                 </div>

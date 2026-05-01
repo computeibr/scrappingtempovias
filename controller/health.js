@@ -1,4 +1,5 @@
 const os = require('os');
+const v8 = require('v8');
 const { Router } = require('express');
 const nodemailer = require('nodemailer');
 const TempoVias = require('../models/tempovias');
@@ -61,6 +62,7 @@ router.get('/detalhes', soAdmin, async (req, res) => {
     const ok = minutosDesde !== null && minutosDesde < 15;
 
     const mem = process.memoryUsage();
+    const heapStats = v8.getHeapStatistics();
     const carga = os.loadavg();
     const uptimeProcesso = process.uptime();
     const uptimeSistema = os.uptime();
@@ -85,6 +87,7 @@ router.get('/detalhes', soAdmin, async (req, res) => {
         memoria: {
           heapUsado:     mem.heapUsed,
           heapTotal:     mem.heapTotal,
+          heapLimite:    heapStats.heap_size_limit,
           rss:           mem.rss,
           sistemaTotal:  os.totalmem(),
           sistemaLivre:  os.freemem(),
