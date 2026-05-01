@@ -29,11 +29,11 @@ function formatarUptime(segundos) {
   const d = Math.floor(segundos / 86400);
   const h = Math.floor((segundos % 86400) / 3600);
   const m = Math.floor((segundos % 3600) / 60);
-  const partes = [];
-  if (d > 0) partes.push(`${d}d`);
-  if (h > 0) partes.push(`${h}h`);
-  partes.push(`${m}min`);
-  return partes.join(' ');
+  const s = Math.floor(segundos % 60);
+  if (d > 0) return `${d}d ${h}h ${m}min`;
+  if (h > 0) return `${h}h ${m}min`;
+  if (m > 0) return `${m}min ${s}s`;
+  return `${s}s`;
 }
 
 // ─── GET /api/health — público, para monitoramento externo ───────────────────

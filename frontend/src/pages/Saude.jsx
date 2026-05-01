@@ -330,20 +330,19 @@ export default function Saude() {
                           Alocado: {bytes(mem.heapTotal)} — V8 expande até o limite automaticamente
                         </p>
                       </div>
-                      <div>
-                        <div className="flex justify-between text-xs text-gray-600 mb-1">
-                          <span>RSS (processo)</span>
-                          <span className="tabular-nums">
-                            {bytes(mem.rss)}
-                            {s && (
-                              <span className="text-gray-400 ml-1">
-                                ({((mem.rss / s.memoria.sistemaTotal) * 100).toFixed(1)}% da RAM)
-                              </span>
-                            )}
-                          </span>
+                      <div className="flex justify-between items-start pt-1">
+                        <div>
+                          <p className="text-xs text-gray-600">RSS (processo)</p>
+                          <p className="text-xs text-gray-400 mt-0.5">Heap + buffers + libs nativas</p>
                         </div>
-                        {s && <Barra valor={mem.rss} total={s.memoria.sistemaTotal} cor="#00C0F3" />}
-                        <p className="text-xs text-gray-400 mt-1">Heap + buffers + libs nativas</p>
+                        <div className="text-right">
+                          <p className="text-xs font-medium text-gray-800 tabular-nums">{bytes(mem.rss)}</p>
+                          {s && (
+                            <p className="text-xs text-gray-400 tabular-nums">
+                              {((mem.rss / s.memoria.sistemaTotal) * 100).toFixed(1)}% da RAM
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
