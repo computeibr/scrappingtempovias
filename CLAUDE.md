@@ -35,7 +35,8 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 │   ├── health.js       ← GET / (público), GET /detalhes (soAdmin), POST /test-email (soAdmin)
 │   └── rotasvia.js     ← CRUD de rotas + autoria + compartilhamento + rotas órfãs
 ├── utils/
-│   └── rotasVisiveis.js ← helper compartilhado: Admin→todas; outros→suas+legadas+compartilhadas
+│   ├── rotasVisiveis.js  ← helper compartilhado: Admin→todas; outros→suas+legadas+compartilhadas
+│   └── monitorSistema.js ← loop setInterval 60s: alerta por e-mail se CPU da VPS > threshold
 ├── models/
 │   ├── db.js           ← Sequelize dialect postgres; suporte a DB_SSL via env
 │   ├── User.js         ← tabela users
@@ -51,7 +52,7 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
     │   ├── pages/Dashboard.jsx      ← chips de categoria na sidebar; filtra rotas visíveis ao user
     │   ├── pages/Admin.jsx         ← CRUD de rotas + categoria + filtro + compartilhamento inline
     │   ├── pages/Ajustes.jsx       ← Admin only: assume autoria de rotas órfãs (creatorId IS NULL)
-    │   ├── pages/Saude.jsx         ← Admin only: saúde do sistema, métricas, teste de e-mail
+    │   ├── pages/Saude.jsx         ← Admin only: status, ETL, e-mail+teste, CPU/RAM ao vivo (1s) + config (30s)
     │   ├── pages/Usuarios.jsx      ← CRUD de usuários (só Admin 99)
     │   ├── pages/Monitor/          ← chips de categoria na barra superior; filtra rotas visíveis
     │   ├── pages/Feriados/
@@ -129,7 +130,8 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 | GET | `/api/dashboard/ultimas/:id` | eAdmin | Últimas leituras com paginação |
 | GET | `/api/monitor` | eAdmin | Rotas visíveis ao usuário com variação e média histórica; inclui campo `categoria` |
 | GET | `/api/health` | — | Status público: ok, última leitura, ETL ativo, email configurado |
-| GET | `/api/health/detalhes` | soAdmin | Métricas completas: ETL config, email, memória Node/SO, CPU load, uptime |
+| GET | `/api/health/live` | soAdmin | **Sem banco** — loadavg, CPU% processo, memória; polled a cada 1s no frontend |
+| GET | `/api/health/detalhes` | soAdmin | Métricas completas com DB: ETL config, email, memória+heapLimite, uptime |
 | POST | `/api/health/test-email` | soAdmin | Envia e-mail de teste imediatamente (independe de falhas) |
 | GET | `/api/rotas/rotasvia` ou `/rota/rotasvia` | — | **Público / ETL** — todas as rotas sem filtro |
 | GET | `/api/rotas/rotasvia/minhas` | eAdmin | Rotas visíveis ao usuário (suas + legadas + compartilhadas) |
@@ -198,6 +200,7 @@ ETL_BROWSER_RECYCLE=12     # ciclos antes de reciclar o browser (default 12 ≈ 
 ALERT_EMAIL=               # Gmail remetente para alertas de falha
 ALERT_EMAIL_PASS=          # App password do Gmail
 ALERT_EMAIL_TO=            # Destinatário do alerta (padrão: mesmo que ALERT_EMAIL)
+ALERTA_CPU_PORCENTO=80     # threshold de alerta de CPU (default 80%; ETL causa picos de ~70%)
 ```
 **`frontend/.env`:**
 ```
@@ -230,10 +233,13 @@ Cores extraídas do `identidadevisual2022.pdf` (Manual de Marca Prefeitura Rio):
 - Dashboard e Monitor filtram rotas por visibilidade do usuário (Admin vê tudo; outros veem as suas + legadas + compartilhadas com seu e-mail)
 - Filtro de categoria por chips clicáveis: Dashboard (sidebar) e Monitor (barra superior) — chips aparecem automaticamente quando existem categorias cadastradas
 - Página Metodologia contém seção acordeão `🔐 Rotas, Permissões e Compartilhamento` explicando as regras de acesso para os usuários finais
-- `controller/health.js` usa módulo `os` nativo do Node para métricas de sistema — sem dependências extras. `os.totalmem()`/`os.loadavg()` refletem o host da VPS (não apenas o container); `process.memoryUsage()` é o consumo real do processo Node.js
+- `controller/health.js` usa módulos `os` e `v8` nativos do Node — sem dependências extras. `os.loadavg()` reflete o host da VPS (não só o container); `process.memoryUsage()` é o consumo real do processo Node.js; heap usa `v8.getHeapStatistics().heap_size_limit` como teto real (~4GB), não `heapTotal` (que é o alocado no momento)
 - E-mail de alertas (Gmail) exige **App Password** (não senha normal) quando 2FA está ativo na conta. Gerado em: Conta Google → Segurança → Senhas de apps
 - `enviarAlertaEmail` loga `warn` quando variáveis não configuradas (antes retornava silenciosamente)
-- Página `/saude` auto-atualiza a cada 30s e tem botão de refresh manual; botão "Enviar e-mail de teste" funciona mesmo sem erros anteriores
+- Página `/saude` usa **dois ciclos de polling distintos**: `GET /api/health/live` a cada 1s (sem banco, só CPU/RAM) e `GET /api/health/detalhes` a cada 30s (com banco). Isso permite capturar picos do ETL sem sobrecarregar o banco.
+- `utils/monitorSistema.js` monitora `os.loadavg()[0] / nucleos` a cada 60s. Usa média de 1 minuto do Linux (não instantâneo) — pico de 25s do ETL não dispara alerta; precisa de ~60s de carga sustentada. Threshold padrão: 80% (configurável com `ALERTA_CPU_PORCENTO`). Cooldown de 30min entre alertas. Alerta só na transição normal→alto.
+- `process.cpuUsage()` delta entre chamadas expõe CPU% do processo Node.js no endpoint `/live`; cálculo: `(user+system) / elapsed / núcleos × 100`
+- Uptime: `formatarUptime` mostra segundos para uptimes < 1 min (ex: `45s`, `1min 30s`)
 
 ## Docker
 O `Dockerfile` usa **multi-stage build**:
@@ -286,10 +292,12 @@ Configuração Puppeteer no Docker:
 
 ### Observabilidade e alertas — entregas aplicadas
 1. [x] `GET /api/health` público — status básico para monitoramento externo
-2. [x] `GET /api/health/detalhes` (soAdmin) — ETL config, email, memória, CPU load, uptime
-3. [x] `POST /api/health/test-email` (soAdmin) — dispara e-mail de teste sem esperar falhas
-4. [x] `enviarAlertaEmail` loga warn quando vars não configuradas (era silencioso)
-5. [x] Página `/saude` (Admin only) — status geral, ETL, e-mail + teste, recursos do servidor com barras de progresso, auto-refresh 30s
+2. [x] `GET /api/health/detalhes` (soAdmin) — ETL config, email, memória+heapLimite, CPU load, uptime
+3. [x] `GET /api/health/live` (soAdmin) — sem banco; loadavg, CPU% processo, memória; polled 1s
+4. [x] `POST /api/health/test-email` (soAdmin) — dispara e-mail de teste sem esperar falhas
+5. [x] `enviarAlertaEmail` loga warn quando vars não configuradas (era silencioso)
+6. [x] `utils/monitorSistema.js` — alerta por e-mail quando CPU da VPS > threshold (padrão 80%); verifica a cada 60s usando `os.loadavg()[0]`; cooldown 30min
+7. [x] Página `/saude` (Admin only) — dois ciclos: CPU/RAM ao vivo 1s + config 30s; heap usa `heapLimite` real; RSS como texto; uptime com segundos
 
 ## Variáveis a configurar no EasyPanel
 ```
@@ -310,4 +318,5 @@ VITE_GOOGLE_MAPS_KEY=<chave Google Maps API>
 ALERT_EMAIL=<gmail>
 ALERT_EMAIL_PASS=<app password>
 ALERT_EMAIL_TO=<destinatário>
+ALERTA_CPU_PORCENTO=80
 ```
