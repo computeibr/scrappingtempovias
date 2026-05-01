@@ -30,8 +30,11 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 ├── controller/
 │   ├── etl.js          ← scraping paralelo com worker pool; cron a cada 5 min + execução imediata
 │   ├── auth.js         ← login, criar-usuario, CRUD de usuários (GET/PUT/DELETE /api/auth/usuarios)
-│   ├── dashboard.js    ← GET /api/dashboard/resumo|rotas|historico/:id|snapshot|ultimas/:id
+│   ├── dashboard.js    ← endpoints filtrados por visibilidade do usuário (usa rotasVisiveis helper)
+│   ├── monitor.js      ← GET /api/monitor filtrado por visibilidade; retorna campo `categoria`
 │   └── rotasvia.js     ← CRUD de rotas + autoria + compartilhamento + rotas órfãs
+├── utils/
+│   └── rotasVisiveis.js ← helper compartilhado: Admin→todas; outros→suas+legadas+compartilhadas
 ├── models/
 │   ├── db.js           ← Sequelize dialect postgres; suporte a DB_SSL via env
 │   ├── User.js         ← tabela users
@@ -44,13 +47,13 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 └── frontend/           ← React + Vite (porta 3000 no dev)
     ├── src/
     │   ├── pages/Login.jsx
-    │   ├── pages/Dashboard.jsx
+    │   ├── pages/Dashboard.jsx      ← chips de categoria na sidebar; filtra rotas visíveis ao user
     │   ├── pages/Admin.jsx         ← CRUD de rotas + categoria + filtro + compartilhamento inline
     │   ├── pages/Ajustes.jsx       ← Admin only: assume autoria de rotas órfãs (creatorId IS NULL)
     │   ├── pages/Usuarios.jsx      ← CRUD de usuários (só Admin 99)
-    │   ├── pages/Monitor/
+    │   ├── pages/Monitor/          ← chips de categoria na barra superior; filtra rotas visíveis
     │   ├── pages/Feriados/
-    │   ├── pages/Metodologia/
+    │   ├── pages/Metodologia/      ← acordeão "Rotas, Permissões e Compartilhamento" adicionado
     │   ├── components/AppShell.jsx ← shell principal: sidebar com nav por perfil + header mobile
     │   ├── components/RouteMap.jsx ← Google Maps + DirectionsService
     │   ├── components/TimeChart.jsx
@@ -117,11 +120,12 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 | GET | `/api/auth/usuarios` | soAdmin | Lista todos os usuários |
 | PUT | `/api/auth/usuarios/:id` | soAdmin | Edita nome, e-mail, perfil e/ou senha |
 | DELETE | `/api/auth/usuarios/:id` | soAdmin | Remove usuário (não pode auto-remover) |
-| GET | `/api/dashboard/resumo` | eAdmin | Contadores gerais (totalRotas, totalLeituras, hoje, semana) |
-| GET | `/api/dashboard/rotas` | eAdmin | Lista todas as rotas cadastradas |
+| GET | `/api/dashboard/resumo` | eAdmin | Contadores filtrados por visibilidade do usuário |
+| GET | `/api/dashboard/rotas` | eAdmin | Rotas visíveis ao usuário (suas + legadas + compartilhadas) |
 | GET | `/api/dashboard/historico/:id` | eAdmin | Médias por hora + evolução diária com filtros |
-| GET | `/api/dashboard/snapshot` | eAdmin | Última leitura de cada rota (para popup no mapa) |
+| GET | `/api/dashboard/snapshot` | eAdmin | Última leitura das rotas visíveis ao usuário (mapa) |
 | GET | `/api/dashboard/ultimas/:id` | eAdmin | Últimas leituras com paginação |
+| GET | `/api/monitor` | eAdmin | Rotas visíveis ao usuário com variação e média histórica; inclui campo `categoria` |
 | GET | `/api/rotas/rotasvia` ou `/rota/rotasvia` | — | **Público / ETL** — todas as rotas sem filtro |
 | GET | `/api/rotas/rotasvia/minhas` | eAdmin | Rotas visíveis ao usuário (suas + legadas + compartilhadas) |
 | GET | `/api/rotas/rotasvia/orfas` | soAdmin | Rotas com `creatorId IS NULL` |
@@ -212,6 +216,10 @@ Cores extraídas do `identidadevisual2022.pdf` (Manual de Marca Prefeitura Rio):
 - Compartilhamento por e-mail (não por user_id) para permitir compartilhar com pessoas sem conta
 - `GET /rotasvia` permanece público (ETL); `GET /rotasvia/minhas` é o endpoint autenticado do frontend
 - Botão Cadastrar em `Admin.jsx` só habilita quando name + url + categoria estão todos preenchidos
+- Helper `utils/rotasVisiveis.js` centraliza a lógica de filtro de visibilidade — usado em `dashboard.js` e `monitor.js` para evitar duplicação
+- Dashboard e Monitor filtram rotas por visibilidade do usuário (Admin vê tudo; outros veem as suas + legadas + compartilhadas com seu e-mail)
+- Filtro de categoria por chips clicáveis: Dashboard (sidebar) e Monitor (barra superior) — chips aparecem automaticamente quando existem categorias cadastradas
+- Página Metodologia contém seção acordeão `🔐 Rotas, Permissões e Compartilhamento` explicando as regras de acesso para os usuários finais
 
 ## Docker
 O `Dockerfile` usa **multi-stage build**:
@@ -247,6 +255,17 @@ Configuração Puppeteer no Docker:
 5. [x] Dedup de 3 minutos — segunda barreira anti-duplicata
 6. [x] Request interception — bloqueia image/font/stylesheet/media para reduzir CPU
 7. [x] Suporte a distâncias em metros (rotas < 1 km como Av. Delfim Moreira, Av. Vieira Souto)
+
+### Módulo de Rotas — entregas aplicadas
+1. [x] Autoria de rota (`creatorId`) — vinculação automática ao criar
+2. [x] Permissões de edição/remoção por criador ou Admin
+3. [x] Compartilhamento view-only por e-mail (`route_shares`)
+4. [x] Categorização de rotas com agrupamento e filtro em `Admin.jsx`
+5. [x] Página `/ajustes` para Admin reivindicar rotas órfãs
+6. [x] `utils/rotasVisiveis.js` — helper de visibilidade centralizado
+7. [x] Dashboard e Monitor filtram rotas por visibilidade do usuário
+8. [x] Filtro de categoria por chips em Dashboard (sidebar) e Monitor (barra superior)
+9. [x] Seção metodologia `🔐 Rotas, Permissões e Compartilhamento` com acordeão de FAQ
 
 ## Variáveis a configurar no EasyPanel
 ```

@@ -168,6 +168,85 @@ const SECOES = [
     ],
   },
   {
+    id: 'rotas-visibilidade',
+    titulo: 'Rotas, Permissões e Compartilhamento',
+    icone: '🔐',
+    resumo: 'Quem pode ver, editar e compartilhar cada rota — e como funciona o controle de acesso por e-mail.',
+    blocos: [
+      {
+        tipo: 'texto',
+        conteudo: 'Cada rota cadastrada no sistema pertence ao usuário que a criou. Isso garante que cada equipe ou responsável visualize e gerencie apenas as rotas de sua competência, sem poluição visual causada por rotas de outras áreas.',
+      },
+      {
+        tipo: 'tabela',
+        titulo: 'Resumo de permissões por perfil',
+        cabecalho: ['Perfil', 'Ver rotas', 'Criar', 'Editar / Remover', 'Compartilhar'],
+        linhas: [
+          ['View (1)', 'Suas + compartilhadas + legadas', '—', '—', '—'],
+          ['User (2)', 'Suas + compartilhadas + legadas', 'Sim', 'Apenas as suas', 'Sim (das suas)'],
+          ['Admin (99)', 'Todas', 'Sim', 'Todas', 'Todas'],
+        ],
+      },
+      {
+        tipo: 'destaque',
+        titulo: 'Criador da rota',
+        conteudo: 'Ao cadastrar uma rota, o sistema vincula automaticamente o usuário autenticado como criador (campo creatorId). Somente o criador — ou um Administrador — pode editar ou remover a rota.',
+      },
+      {
+        tipo: 'destaque',
+        titulo: 'Compartilhamento por e-mail',
+        conteudo: 'O criador pode compartilhar qualquer uma das suas rotas com outros usuários informando o endereço de e-mail deles. O acesso concedido é somente leitura: o usuário vê a rota no Dashboard e no Monitor, mas não pode editá-la nem removê-la.',
+      },
+      {
+        tipo: 'passos',
+        titulo: 'Como compartilhar uma rota',
+        itens: [
+          'Acesse "Gerenciar Rotas" no menu lateral',
+          'Localize a rota desejada na lista',
+          'Clique no botão "Compartilhar" ao lado da rota',
+          'Digite o e-mail do usuário no campo que aparece abaixo da rota',
+          'Clique em "Adicionar" — o compartilhamento é imediato',
+          'Para revogar, clique em "remover" ao lado do e-mail na lista de compartilhamentos',
+        ],
+      },
+      {
+        tipo: 'destaque',
+        titulo: 'Rotas legadas (sem criador)',
+        conteudo: 'Rotas cadastradas antes da implementação do sistema de autoria ficam com creatorId nulo e são visíveis a todos os usuários. Administradores podem acessar a página "Ajustes" para assumir a autoria dessas rotas individualmente ou em lote, transferindo-as para seu perfil.',
+      },
+      {
+        tipo: 'destaque',
+        titulo: 'Categorias de rota',
+        conteudo: 'Cada rota pode receber uma categoria (campo de texto livre, ex: "Zona Sul", "Corredor Av. Brasil"). No Dashboard e no Monitor, chips de filtro aparecem automaticamente quando há categorias cadastradas, permitindo filtrar a visualização por grupo sem precisar rolar toda a lista.',
+      },
+      {
+        tipo: 'faq',
+        itens: [
+          {
+            pergunta: 'Se eu compartilhar uma rota, o outro usuário pode editar os dados dela?',
+            resposta: 'Não. O compartilhamento concede apenas leitura. O usuário que recebeu o compartilhamento vê a rota no Dashboard e no Monitor, mas os botões de editar, remover e compartilhar não aparecem para ele. Qualquer tentativa via API também é bloqueada no backend.',
+          },
+          {
+            pergunta: 'Posso compartilhar com alguém que ainda não tem conta no sistema?',
+            resposta: 'Sim. O compartilhamento é registrado pelo e-mail. Quando o usuário criar a conta com esse mesmo e-mail, a rota já aparecerá para ele automaticamente.',
+          },
+          {
+            pergunta: 'Um Administrador pode ver e editar todas as rotas mesmo sem ser o criador?',
+            resposta: 'Sim. O perfil Administrador (perfilId = 99) tem acesso total — vê, edita, remove e compartilha qualquer rota, independente de quem a criou.',
+          },
+          {
+            pergunta: 'O que acontece com as rotas legadas que ninguém assumiu?',
+            resposta: 'Elas continuam visíveis a todos os usuários e continuam sendo monitoradas pelo ETL normalmente. A diferença é que qualquer usuário pode vê-las, mas apenas um Administrador pode editá-las ou removê-las, já que não há criador definido.',
+          },
+          {
+            pergunta: 'As categorias têm algum efeito na coleta de dados?',
+            resposta: 'Não. A coleta automática de dados (ETL) usa todas as rotas independentemente de categoria ou criador. A categoria é exclusivamente um recurso de organização visual no Dashboard e no Monitor.',
+          },
+        ],
+      },
+    ],
+  },
+  {
     id: 'perguntas-frequentes',
     titulo: 'Perguntas Frequentes',
     icone: '❓',
