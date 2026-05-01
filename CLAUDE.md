@@ -153,8 +153,12 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 - **Execução imediata + cron**: roda ao iniciar e depois a cada 5 min (`*/5 * * * *`, timezone America/Sao_Paulo); a chamada imediata usa o mesmo guard `isRunning = true` que o cron
 - **Retry**: 2 tentativas por rota com backoff de 2s; erro descritivo se elemento XPath não for encontrado
 - **FAST_MODE** (`ETL_FAST_MODE=true`): usa `domcontentloaded` + espera fixa de 3s em vez de `networkidle2` — **ativo em produção**
-- **Request interception**: cada aba bloqueia `image`, `font`, `stylesheet`, `media` — o Maps só precisa de JS/XHR para calcular tempo/km; reduz CPU significativamente
+- **Request interception**: cada aba bloqueia `image`, `font`, `stylesheet`, `media`, `other` — o Maps só precisa de JS/XHR para calcular tempo/km
+- **Browser persistente** (`obterBrowser()`): o processo Chromium é reutilizado entre ciclos — eliminado o custo de launch/close a cada 5 min. Reciclado automaticamente após `ETL_BROWSER_RECYCLE` ciclos (padrão 12, ~1h) para prevenir memory leak. Se o browser crashar, `isConnected()` detecta e força recriação no ciclo seguinte.
+- **Flags extras do Chrome** (`CHROME_ARGS`): 14 flags adicionais desativam background networking, sync, extensões, métricas, phishing check e outras funcionalidades desnecessárias para scraping
+- **TAB_OPEN_DELAY reduzido** para 500ms (era 2000ms) — com request interception bloqueando recursos pesados, cada aba é muito mais leve; ciclo termina mais rápido, menos tempo em CPU elevada
 - **Alerta por e-mail**: após 3 falhas consecutivas envia e-mail via Nodemailer (Gmail)
+- **Escala para 300 rotas**: com `CONCURRENCY=20`, cada worker processa ~15 rotas sequencialmente; ciclo estimado ≈ 1,75 min — dentro da janela de 5 min
 
 ### Proteções contra duplicatas (duas camadas)
 **Problema identificado:** EasyPanel pode subir múltiplos containers (replicas > 1) ou sobrepor container antigo com novo durante redeploy, causando dois processos ETL escrevendo no mesmo banco.
@@ -183,8 +187,9 @@ DB_PORT=5432
 DB_SSL=false
 ETL_ENABLED=true           # false desativa o scraping completamente
 ETL_CONCURRENCY=20         # abas paralelas — produção usa 20 (8 cores/32GB)
-ETL_TAB_DELAY=2000         # delay em ms entre abertura de cada aba (evita pico de CPU)
+ETL_TAB_DELAY=500          # delay em ms entre abertura de cada aba (reduzido de 2000; request interception torna abas leves)
 ETL_FAST_MODE=true         # true = domcontentloaded+3s (padrão produção); false = networkidle2
+ETL_BROWSER_RECYCLE=12     # ciclos antes de reciclar o browser (default 12 ≈ 1h)
 ALERT_EMAIL=               # Gmail remetente para alertas de falha
 ALERT_EMAIL_PASS=          # App password do Gmail
 ALERT_EMAIL_TO=            # Destinatário do alerta (padrão: mesmo que ALERT_EMAIL)
@@ -255,6 +260,9 @@ Configuração Puppeteer no Docker:
 5. [x] Dedup de 3 minutos — segunda barreira anti-duplicata
 6. [x] Request interception — bloqueia image/font/stylesheet/media para reduzir CPU
 7. [x] Suporte a distâncias em metros (rotas < 1 km como Av. Delfim Moreira, Av. Vieira Souto)
+8. [x] Browser persistente (`obterBrowser`) — elimina launch/close a cada ciclo
+9. [x] 14 Chrome flags extras para reduzir CPU/memória por aba
+10. [x] TAB_OPEN_DELAY reduzido de 2000ms → 500ms (+ `other` adicionado ao request interception)
 
 ### Módulo de Rotas — entregas aplicadas
 1. [x] Autoria de rota (`creatorId`) — vinculação automática ao criar
@@ -279,8 +287,9 @@ DB_PORT=5432
 DB_SSL=false
 ETL_ENABLED=true
 ETL_CONCURRENCY=20
-ETL_TAB_DELAY=2000
+ETL_TAB_DELAY=500
 ETL_FAST_MODE=true
+ETL_BROWSER_RECYCLE=12
 VITE_GOOGLE_MAPS_KEY=<chave Google Maps API>
 ALERT_EMAIL=<gmail>
 ALERT_EMAIL_PASS=<app password>

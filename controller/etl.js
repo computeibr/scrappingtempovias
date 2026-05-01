@@ -10,18 +10,44 @@ const sequelize = require('../models/db');
 // Chave arbitrária única para o advisory lock do PostgreSQL (identifica este processo ETL)
 const ETL_LOCK_KEY = 737465;
 
-// Número de abas paralelas — ajuste conforme os recursos da máquina:
-//   2 vCPU /  8 GB → ETL_CONCURRENCY=8
-//   4 vCPU / 16 GB → ETL_CONCURRENCY=15
+// Número de abas paralelas.
+//   8 vCPU / 32 GB → ETL_CONCURRENCY=20 (produção atual)
+//   Com 300 rotas: 20 abas × ~15 rotas/aba × ~7s/rota ≈ 1,75 min por ciclo
 const CONCURRENCY = parseInt(process.env.ETL_CONCURRENCY || '8', 10);
 
-// Delay entre abertura de cada aba (ms) — evita pico de CPU ao iniciar.
-// Aumente se o servidor for mais fraco (ex: 3000).
-const TAB_OPEN_DELAY = parseInt(process.env.ETL_TAB_DELAY || '2000', 10);
+// Delay entre abertura de abas (ms). Com request interception ativo, abas são leves.
+// Reduzido de 2000 para 500 — ciclo termina mais rápido, menos tempo em CPU elevada.
+const TAB_OPEN_DELAY = parseInt(process.env.ETL_TAB_DELAY || '500', 10);
 
-// Modo rápido experimental: usa domcontentloaded + espera fixa em vez de networkidle2.
-// Ative com ETL_FAST_MODE=true e monitore a qualidade dos dados coletados.
+// Modo rápido: domcontentloaded + espera fixa em vez de networkidle2.
 const FAST_MODE = process.env.ETL_FAST_MODE === 'true';
+
+// Número de ciclos antes de reciclar o browser (evita memory leak).
+// Default: 12 ciclos ≈ 1h com rotas rápidas; ajuste conforme volume de rotas.
+const MAX_CICLOS_BROWSER = parseInt(process.env.ETL_BROWSER_RECYCLE || '12', 10);
+
+// Flags do Chrome que reduzem CPU/memória sem afetar extração de dados.
+const CHROME_ARGS = [
+  '--no-sandbox',
+  '--disable-setuid-sandbox',
+  '--disable-dev-shm-usage',
+  '--disable-gpu',
+  '--no-zygote',
+  '--disable-background-networking',
+  '--disable-background-timer-throttling',
+  '--disable-backgrounding-occluded-windows',
+  '--disable-breakpad',
+  '--disable-client-side-phishing-detection',
+  '--disable-default-apps',
+  '--disable-extensions',
+  '--disable-hang-monitor',
+  '--disable-sync',
+  '--disable-translate',
+  '--metrics-recording-only',
+  '--no-default-browser-check',
+  '--no-first-run',
+  '--safebrowsing-disable-auto-update',
+];
 
 // ─── Alertas ─────────────────────────────────────────────────────────────────
 let falhasConsecutivas = 0;
@@ -53,13 +79,44 @@ async function enviarAlertaEmail(mensagem) {
         'Erro:',
         mensagem,
         '',
-        'Verifique os logs com: pm2 logs my-app',
+        'Verifique os logs no EasyPanel.',
       ].join('\n'),
     });
     console.log('Alerta de falha enviado por e-mail.');
   } catch (err) {
     console.error('Falha ao enviar alerta de e-mail:', err.message);
   }
+}
+
+// ─── Browser persistente ──────────────────────────────────────────────────────
+// Reutiliza o processo Chromium entre ciclos para eliminar o custo de
+// launch/close a cada 5 minutos. Reciclado automaticamente após MAX_CICLOS_BROWSER.
+let browserInstance = null;
+let ciclosBrowser = 0;
+
+async function obterBrowser() {
+  const reutilizavel =
+    browserInstance &&
+    ciclosBrowser < MAX_CICLOS_BROWSER &&
+    browserInstance.isConnected();
+
+  if (reutilizavel) {
+    return browserInstance;
+  }
+
+  if (browserInstance) {
+    console.log(`ETL: reciclando browser após ${ciclosBrowser} ciclo(s).`);
+    await browserInstance.close().catch(() => {});
+    browserInstance = null;
+  }
+
+  ciclosBrowser = 0;
+  browserInstance = await puppeteer.launch({
+    headless: 'new',
+    protocolTimeout: 120000,
+    args: CHROME_ARGS,
+  });
+  return browserInstance;
 }
 
 // ─── Scraping de uma rota ─────────────────────────────────────────────────────
@@ -71,12 +128,9 @@ async function getTempoVias(page, url, name, viaId) {
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       if (FAST_MODE) {
-        // Modo rápido: carrega só o HTML e aguarda 3s para o JS do Maps renderizar.
-        // Mais veloz, mas depende de timing fixo — monitore a qualidade dos dados.
         await page.goto(urlFinal, { waitUntil: 'domcontentloaded', timeout: 40000 });
         await new Promise(r => setTimeout(r, 3000));
       } else {
-        // Modo padrão: aguarda a rede estabilizar (mais confiável, mais lento).
         await page.goto(urlFinal, { waitUntil: 'networkidle2', timeout: 60000 });
       }
 
@@ -120,11 +174,10 @@ async function getTempoVias(page, url, name, viaId) {
         leitura: new Date(),
         viaId,
       });
-      return; // sucesso
+      return;
     } catch (error) {
       if (attempt < 2) {
         console.log(`Tentando novamente: ${name}`);
-        // Backoff progressivo: evita reintentar imediatamente em rota sobrecarregada
         await new Promise(r => setTimeout(r, 2000 * attempt));
       } else {
         console.error(`Falha permanente: ${name} — ${error.message}`);
@@ -134,17 +187,13 @@ async function getTempoVias(page, url, name, viaId) {
 }
 
 // ─── Worker — pega rotas da fila compartilhada até ela esvaziar ───────────────
-// Melhoria 2: worker pool dinâmico.
-// Cada aba processa a próxima rota disponível, em vez de um lote fixo pré-dividido.
-// Isso evita que uma aba fique ociosa enquanto outra ainda processa rotas lentas.
 async function worker(browser, fila, id) {
   const page = await browser.newPage();
 
-  // Bloqueia recursos visuais desnecessários — o Maps só precisa de JS e XHR/fetch
-  // para calcular e renderizar os dados de tempo/km no DOM.
+  // Bloqueia recursos visuais — Maps só precisa de JS e XHR para calcular tempo/km.
   await page.setRequestInterception(true);
   page.on('request', (req) => {
-    if (['image', 'font', 'stylesheet', 'media'].includes(req.resourceType())) {
+    if (['image', 'font', 'stylesheet', 'media', 'other'].includes(req.resourceType())) {
       req.abort();
     } else {
       req.continue();
@@ -164,8 +213,6 @@ async function worker(browser, fila, id) {
 
 // ─── Ciclo principal ──────────────────────────────────────────────────────────
 async function agendamentoDefinido() {
-  // Advisory lock no PostgreSQL: garante que apenas um container rode o ETL por vez.
-  // pg_try_advisory_lock retorna false imediatamente se outro processo já tem a trava.
   const [[{ acquired }]] = await sequelize.query(
     `SELECT pg_try_advisory_lock(${ETL_LOCK_KEY}) AS acquired`
   );
@@ -177,26 +224,14 @@ async function agendamentoDefinido() {
   let browser;
   try {
     const { data } = await axios.get('http://localhost:3001/rota/rotasvia');
-    const fila = [...data.rotasvias]; // cópia mutável para os workers consumirem
+    const fila = [...data.rotasvias];
 
     const inicio = Date.now();
     console.log(`Iniciando ciclo: ${fila.length} rotas em até ${CONCURRENCY} abas paralelas.${FAST_MODE ? ' [FAST MODE]' : ''}`);
 
-    browser = await puppeteer.launch({
-      headless: 'new',
-      protocolTimeout: 120000,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--no-zygote',
-      ],
-    });
+    browser = await obterBrowser();
+    ciclosBrowser++;
 
-    // Melhoria 3: abre as abas com delay escalonado para evitar pico de CPU.
-    // Cada worker começa a processar rotas assim que sua aba abre, sem esperar
-    // as demais — o delay só atrasa a abertura, não o processamento.
     const promises = [];
     const abas = Math.min(CONCURRENCY, fila.length);
     for (let i = 0; i < abas; i++) {
@@ -220,8 +255,14 @@ async function agendamentoDefinido() {
     if (falhasConsecutivas >= 3) {
       await enviarAlertaEmail(error.message || String(error));
     }
+    // Se o browser crashou, força recriação no próximo ciclo
+    if (browser && !browser.isConnected()) {
+      console.log('ETL: browser desconectado — será recriado no próximo ciclo.');
+      browserInstance = null;
+      ciclosBrowser = MAX_CICLOS_BROWSER;
+    }
   } finally {
-    if (browser) await browser.close().catch((err) => console.error('Erro ao fechar browser:', err.message));
+    // Browser NÃO é fechado aqui — reutilizado no próximo ciclo (ver obterBrowser)
     await sequelize.query(`SELECT pg_advisory_unlock(${ETL_LOCK_KEY})`).catch(() => {});
   }
 }
@@ -242,8 +283,6 @@ cron.schedule('*/5 * * * *', async () => {
   }
 }, { timezone: 'America/Sao_Paulo' });
 
-// Executa imediatamente ao iniciar — usa o mesmo guard do cron para evitar
-// sobreposição caso o primeiro tick do cron dispare antes do ciclo inicial terminar.
 (async () => {
   isRunning = true;
   try {
