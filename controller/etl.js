@@ -81,7 +81,10 @@ async function getTempoVias(page, url, name, viaId) {
       }
 
       await page.waitForXPath("//div[contains(text(), 'min') or contains(text(), 'h')]", { timeout: 20000 });
-      await page.waitForXPath("//div[contains(text(), 'km')]", { timeout: 20000 });
+      await page.waitForXPath(
+        "//div[contains(text(),'km') or (contains(text(),' m') and not(contains(text(),'min')))]",
+        { timeout: 20000 }
+      );
 
       const minElement = await page.$x(
         "//div[not(ancestor::button) and not(ancestor::li[contains(@class,'modes')]) " +
@@ -92,7 +95,9 @@ async function getTempoVias(page, url, name, viaId) {
       const minTime = await page.evaluate(el => el.textContent.trim(), minElement[0]);
 
       const kmElement = await page.$x(
-        "//div[not(ancestor::button) and contains(text(),' km') and string-length(normalize-space(text())) < 15]"
+        "//div[not(ancestor::button) " +
+        "and (contains(text(),' km') or (contains(text(),' m') and not(contains(text(),'min')))) " +
+        "and string-length(normalize-space(text())) < 15]"
       );
       if (!kmElement[0]) throw new Error(`Elemento de distância não encontrado para "${name}"`);
       const km = await page.evaluate(el => el.textContent.trim(), kmElement[0]);
