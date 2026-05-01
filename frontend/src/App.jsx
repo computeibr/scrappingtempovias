@@ -7,6 +7,7 @@ import Monitor from './pages/Monitor';
 import Feriados from './pages/Feriados';
 import Metodologia from './pages/Metodologia';
 import Usuarios from './pages/Usuarios';
+import Ajustes from './pages/Ajustes';
 
 function PrivateRoute({ children }) {
   const { token } = useAuth();
@@ -56,6 +57,14 @@ export default function App() {
             element={
               <PrivateRoute>
                 <Metodologia />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/ajustes"
+            element={
+              <PrivateRoute>
+                <Ajustes />
               </PrivateRoute>
             }
           />

@@ -26,9 +26,9 @@ module.exports = {
     try {
       const decoded = await promisify(jwt.verify)(token, process.env.SECRET);
       req.userId = decoded.id;
+      req.userRole = decoded.role;
       req.locals = { role: decoded.role };
       res.locals = { role: decoded.role };
-      // req.levelAcess = decoded.levelAcess;
 
       return next();
     } catch (err) {
@@ -57,6 +57,7 @@ module.exports = {
         return res.status(403).json({ erro: true, mensagem: 'Acesso restrito a administradores.' });
       }
       req.userId = decoded.id;
+      req.userRole = decoded.role;
       req.locals = { role: decoded.role };
       res.locals = { role: decoded.role };
       return next();

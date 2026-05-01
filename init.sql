@@ -83,3 +83,17 @@ CREATE TABLE IF NOT EXISTS users (
     "createdAt" TIMESTAMPTZ   DEFAULT NOW(),
     "updatedAt" TIMESTAMPTZ   DEFAULT NOW()
 );
+
+-- Autoria e categorização de rotas (safe para banco já existente)
+ALTER TABLE tv_tempo_via ADD COLUMN IF NOT EXISTS "creatorId" INTEGER REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE tv_tempo_via ADD COLUMN IF NOT EXISTS categoria VARCHAR(100);
+
+-- Compartilhamento de rotas (view-only por e-mail)
+CREATE TABLE IF NOT EXISTS route_shares (
+    id          SERIAL PRIMARY KEY,
+    "routeId"   INTEGER       NOT NULL REFERENCES tv_tempo_via(id) ON DELETE CASCADE,
+    email       VARCHAR(150)  NOT NULL,
+    "createdAt" TIMESTAMPTZ   DEFAULT NOW(),
+    "updatedAt" TIMESTAMPTZ   DEFAULT NOW(),
+    UNIQUE ("routeId", email)
+);
