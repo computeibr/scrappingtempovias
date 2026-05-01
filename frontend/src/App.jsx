@@ -8,6 +8,7 @@ import Feriados from './pages/Feriados';
 import Metodologia from './pages/Metodologia';
 import Usuarios from './pages/Usuarios';
 import Ajustes from './pages/Ajustes';
+import Saude from './pages/Saude';
 
 function PrivateRoute({ children }) {
   const { token } = useAuth();
@@ -65,6 +66,14 @@ export default function App() {
             element={
               <PrivateRoute>
                 <Ajustes />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/saude"
+            element={
+              <PrivateRoute>
+                <Saude />
               </PrivateRoute>
             }
           />

@@ -1,3 +1,4 @@
+const os = require('os');
 const { Router } = require('express');
 const nodemailer = require('nodemailer');
 const TempoVias = require('../models/tempovias');
@@ -5,7 +6,19 @@ const { soAdmin } = require('../middlewares/auth');
 
 const router = Router();
 
-// GET /api/health — sem autenticação, para monitoramento externo
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function formatarUptime(segundos) {
+  const d = Math.floor(segundos / 86400);
+  const h = Math.floor((segundos % 86400) / 3600);
+  const m = Math.floor((segundos % 3600) / 60);
+  const partes = [];
+  if (d > 0) partes.push(`${d}d`);
+  if (h > 0) partes.push(`${h}h`);
+  partes.push(`${m}min`);
+  return partes.join(' ');
+}
+
+// ─── GET /api/health — público, para monitoramento externo ───────────────────
 router.get('/', async (req, res) => {
   try {
     const ultima = await TempoVias.findOne({
@@ -18,7 +31,6 @@ router.get('/', async (req, res) => {
       ? Math.floor((agora - new Date(ultima.leitura)) / 60000)
       : null;
 
-    // Considera saudável se houver leitura nos últimos 15 min
     const ok = minutosDesde !== null && minutosDesde < 15;
 
     res.status(ok ? 200 : 503).json({
@@ -34,7 +46,72 @@ router.get('/', async (req, res) => {
   }
 });
 
-// POST /api/health/test-email — admin only: dispara e-mail de teste imediatamente
+// ─── GET /api/health/detalhes — admin: métricas completas do sistema ─────────
+router.get('/detalhes', soAdmin, async (req, res) => {
+  try {
+    const ultima = await TempoVias.findOne({
+      attributes: ['leitura'],
+      order: [['leitura', 'DESC']],
+    });
+
+    const agora = new Date();
+    const minutosDesde = ultima
+      ? Math.floor((agora - new Date(ultima.leitura)) / 60000)
+      : null;
+    const ok = minutosDesde !== null && minutosDesde < 15;
+
+    const mem = process.memoryUsage();
+    const carga = os.loadavg();
+    const uptimeProcesso = process.uptime();
+    const uptimeSistema = os.uptime();
+
+    return res.json({
+      ok,
+      etl: {
+        ativo:                  process.env.ETL_ENABLED === 'true',
+        fastMode:               process.env.ETL_FAST_MODE === 'true',
+        concurrency:            parseInt(process.env.ETL_CONCURRENCY || '8', 10),
+        tabDelay:               parseInt(process.env.ETL_TAB_DELAY || '500', 10),
+        browserRecycle:         parseInt(process.env.ETL_BROWSER_RECYCLE || '12', 10),
+        ultimaLeitura:          ultima?.leitura || null,
+        minutosDesdeUltimaLeitura: minutosDesde,
+      },
+      email: {
+        configurado:  !!(process.env.ALERT_EMAIL && process.env.ALERT_EMAIL_PASS),
+        remetente:    process.env.ALERT_EMAIL || null,
+        destinatario: process.env.ALERT_EMAIL_TO || process.env.ALERT_EMAIL || null,
+      },
+      sistema: {
+        memoria: {
+          heapUsado:     mem.heapUsed,
+          heapTotal:     mem.heapTotal,
+          rss:           mem.rss,
+          sistemaTotal:  os.totalmem(),
+          sistemaLivre:  os.freemem(),
+        },
+        carga: {
+          um:     parseFloat(carga[0].toFixed(2)),
+          cinco:  parseFloat(carga[1].toFixed(2)),
+          quinze: parseFloat(carga[2].toFixed(2)),
+          nucleos: os.cpus().length,
+        },
+        uptime: {
+          processoSegundos: Math.floor(uptimeProcesso),
+          sistemaSegundos:  Math.floor(uptimeSistema),
+          processoFormatado: formatarUptime(uptimeProcesso),
+          sistemaFormatado:  formatarUptime(uptimeSistema),
+        },
+        node:      process.version,
+        plataforma: `${process.platform} (${os.arch()})`,
+      },
+      servidor: agora.toISOString(),
+    });
+  } catch (err) {
+    return res.status(500).json({ ok: false, erro: err.message });
+  }
+});
+
+// ─── POST /api/health/test-email — admin: dispara e-mail de teste ────────────
 router.post('/test-email', soAdmin, async (req, res) => {
   const { ALERT_EMAIL, ALERT_EMAIL_PASS, ALERT_EMAIL_TO } = process.env;
 

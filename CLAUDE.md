@@ -32,6 +32,7 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 │   ├── auth.js         ← login, criar-usuario, CRUD de usuários (GET/PUT/DELETE /api/auth/usuarios)
 │   ├── dashboard.js    ← endpoints filtrados por visibilidade do usuário (usa rotasVisiveis helper)
 │   ├── monitor.js      ← GET /api/monitor filtrado por visibilidade; retorna campo `categoria`
+│   ├── health.js       ← GET / (público), GET /detalhes (soAdmin), POST /test-email (soAdmin)
 │   └── rotasvia.js     ← CRUD de rotas + autoria + compartilhamento + rotas órfãs
 ├── utils/
 │   └── rotasVisiveis.js ← helper compartilhado: Admin→todas; outros→suas+legadas+compartilhadas
@@ -50,6 +51,7 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
     │   ├── pages/Dashboard.jsx      ← chips de categoria na sidebar; filtra rotas visíveis ao user
     │   ├── pages/Admin.jsx         ← CRUD de rotas + categoria + filtro + compartilhamento inline
     │   ├── pages/Ajustes.jsx       ← Admin only: assume autoria de rotas órfãs (creatorId IS NULL)
+    │   ├── pages/Saude.jsx         ← Admin only: saúde do sistema, métricas, teste de e-mail
     │   ├── pages/Usuarios.jsx      ← CRUD de usuários (só Admin 99)
     │   ├── pages/Monitor/          ← chips de categoria na barra superior; filtra rotas visíveis
     │   ├── pages/Feriados/
@@ -86,7 +88,7 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 
 - Sidebar (`AppShell.jsx`) exibe itens de acordo com o perfil
 - `Admin.jsx` redireciona para `/` se `perfilId < 2`
-- `Usuarios.jsx` e `Ajustes.jsx` redirecionam para `/` se `perfilId !== 99`
+- `Usuarios.jsx`, `Ajustes.jsx` e `Saude.jsx` redirecionam para `/` se `perfilId !== 99`
 - Backend: editar/remover rota exige ser o criador da rota **ou** Admin (não mais `soAdmin` exclusivo)
 
 ## Módulo de Rotas — regras de negócio
@@ -126,6 +128,9 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 | GET | `/api/dashboard/snapshot` | eAdmin | Última leitura das rotas visíveis ao usuário (mapa) |
 | GET | `/api/dashboard/ultimas/:id` | eAdmin | Últimas leituras com paginação |
 | GET | `/api/monitor` | eAdmin | Rotas visíveis ao usuário com variação e média histórica; inclui campo `categoria` |
+| GET | `/api/health` | — | Status público: ok, última leitura, ETL ativo, email configurado |
+| GET | `/api/health/detalhes` | soAdmin | Métricas completas: ETL config, email, memória Node/SO, CPU load, uptime |
+| POST | `/api/health/test-email` | soAdmin | Envia e-mail de teste imediatamente (independe de falhas) |
 | GET | `/api/rotas/rotasvia` ou `/rota/rotasvia` | — | **Público / ETL** — todas as rotas sem filtro |
 | GET | `/api/rotas/rotasvia/minhas` | eAdmin | Rotas visíveis ao usuário (suas + legadas + compartilhadas) |
 | GET | `/api/rotas/rotasvia/orfas` | soAdmin | Rotas com `creatorId IS NULL` |
@@ -225,6 +230,10 @@ Cores extraídas do `identidadevisual2022.pdf` (Manual de Marca Prefeitura Rio):
 - Dashboard e Monitor filtram rotas por visibilidade do usuário (Admin vê tudo; outros veem as suas + legadas + compartilhadas com seu e-mail)
 - Filtro de categoria por chips clicáveis: Dashboard (sidebar) e Monitor (barra superior) — chips aparecem automaticamente quando existem categorias cadastradas
 - Página Metodologia contém seção acordeão `🔐 Rotas, Permissões e Compartilhamento` explicando as regras de acesso para os usuários finais
+- `controller/health.js` usa módulo `os` nativo do Node para métricas de sistema — sem dependências extras. `os.totalmem()`/`os.loadavg()` refletem o host da VPS (não apenas o container); `process.memoryUsage()` é o consumo real do processo Node.js
+- E-mail de alertas (Gmail) exige **App Password** (não senha normal) quando 2FA está ativo na conta. Gerado em: Conta Google → Segurança → Senhas de apps
+- `enviarAlertaEmail` loga `warn` quando variáveis não configuradas (antes retornava silenciosamente)
+- Página `/saude` auto-atualiza a cada 30s e tem botão de refresh manual; botão "Enviar e-mail de teste" funciona mesmo sem erros anteriores
 
 ## Docker
 O `Dockerfile` usa **multi-stage build**:
@@ -274,6 +283,13 @@ Configuração Puppeteer no Docker:
 7. [x] Dashboard e Monitor filtram rotas por visibilidade do usuário
 8. [x] Filtro de categoria por chips em Dashboard (sidebar) e Monitor (barra superior)
 9. [x] Seção metodologia `🔐 Rotas, Permissões e Compartilhamento` com acordeão de FAQ
+
+### Observabilidade e alertas — entregas aplicadas
+1. [x] `GET /api/health` público — status básico para monitoramento externo
+2. [x] `GET /api/health/detalhes` (soAdmin) — ETL config, email, memória, CPU load, uptime
+3. [x] `POST /api/health/test-email` (soAdmin) — dispara e-mail de teste sem esperar falhas
+4. [x] `enviarAlertaEmail` loga warn quando vars não configuradas (era silencioso)
+5. [x] Página `/saude` (Admin only) — status geral, ETL, e-mail + teste, recursos do servidor com barras de progresso, auto-refresh 30s
 
 ## Variáveis a configurar no EasyPanel
 ```
