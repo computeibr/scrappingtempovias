@@ -6,6 +6,7 @@ const { DateTime } = require('luxon');
 const { eAdmin } = require('../middlewares/auth');
 const TempoVias = require('../models/tempovias');
 const Rotasvia = require('../models/rotasvia');
+const rotasVisiveis = require('../utils/rotasVisiveis');
 
 const TZ = 'America/Sao_Paulo';
 const toSP = (date) => DateTime.fromJSDate(new Date(date), { zone: TZ });
@@ -24,7 +25,9 @@ const extrairMinutos = (tempo) => {
 // GET /api/dashboard/resumo
 router.get('/resumo', eAdmin, async (req, res) => {
   try {
-    const totalRotas = await Rotasvia.count();
+    const { userId, userRole } = req;
+    const visiveis = await rotasVisiveis(userId, userRole, { attributes: ['id'] });
+    const totalRotas = visiveis.length;
     const totalLeituras = await TempoVias.count();
     const hoje = DateTime.now().setZone(TZ).startOf('day').toJSDate();
     const leiturasHoje = await TempoVias.count({ where: { leitura: { [Op.gte]: hoje } } });
@@ -40,7 +43,8 @@ router.get('/resumo', eAdmin, async (req, res) => {
 // GET /api/dashboard/rotas
 router.get('/rotas', eAdmin, async (req, res) => {
   try {
-    const rotas = await Rotasvia.findAll({ order: [['id', 'ASC']] });
+    const { userId, userRole } = req;
+    const rotas = await rotasVisiveis(userId, userRole, { order: [['id', 'ASC']] });
     return res.json({ rotas });
   } catch (err) {
     return res.status(500).json({ erro: true, mensagem: err.message });
@@ -142,7 +146,8 @@ router.get('/historico/:id', eAdmin, async (req, res) => {
 // GET /api/dashboard/snapshot - última leitura de cada rota (para popup no mapa)
 router.get('/snapshot', eAdmin, async (req, res) => {
   try {
-    const rotas = await Rotasvia.findAll({ attributes: ['id'], order: [['id', 'ASC']] });
+    const { userId, userRole } = req;
+    const rotas = await rotasVisiveis(userId, userRole, { attributes: ['id'], order: [['id', 'ASC']] });
     const snapshot = {};
     await Promise.all(
       rotas.map(async (r) => {

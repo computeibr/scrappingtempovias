@@ -6,6 +6,7 @@ const { eAdmin } = require('../middlewares/auth');
 const TempoVias = require('../models/tempovias');
 const Rotasvia = require('../models/rotasvia');
 const DiasNaoUteis = require('../models/DiasNaoUteis');
+const rotasVisiveis = require('../utils/rotasVisiveis');
 
 const TZ = 'America/Sao_Paulo';
 const toSP = (date) => DateTime.fromJSDate(new Date(date), { zone: TZ });
@@ -37,7 +38,7 @@ router.get('/', eAdmin, async (req, res) => {
     });
     const datasExcluidas = new Set(registrosDnu.map((d) => d.data));
 
-    const rotas = await Rotasvia.findAll({ order: [['name', 'ASC']] });
+    const rotas = await rotasVisiveis(req.userId, req.userRole, { order: [['name', 'ASC']] });
 
     const resultado = await Promise.all(
       rotas.map(async (rota) => {
@@ -94,6 +95,7 @@ router.get('/', eAdmin, async (req, res) => {
           id: rota.id,
           nome: rota.name,
           url: rota.url,
+          categoria: rota.categoria || null,
           leituraAtual: {
             tempo: ultima.tempo,
             tempoMinutos: tempoAtualMin,

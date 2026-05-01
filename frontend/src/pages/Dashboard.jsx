@@ -19,6 +19,7 @@ export default function Dashboard() {
   const [historico, setHistorico] = useState(null);
   const [loadingHistorico, setLoadingHistorico] = useState(false);
   const [search, setSearch] = useState('');
+  const [filtroCategoria, setFiltroCategoria] = useState('');
   const [snapshot, setSnapshot] = useState({});
 
   const [filters, setFilters] = useState({
@@ -75,9 +76,13 @@ export default function Dashboard() {
     setRotaAtiva((prev) => (prev?.id === rota.id ? null : rota));
   }
 
-  const rotasFiltradas = rotas.filter((r) =>
-    r.name.toLowerCase().includes(search.toLowerCase()),
-  );
+  const categorias = [...new Set(rotas.map(r => r.categoria).filter(Boolean))].sort();
+
+  const rotasFiltradas = rotas.filter((r) => {
+    const matchSearch = r.name.toLowerCase().includes(search.toLowerCase());
+    const matchCat = !filtroCategoria || (r.categoria || '') === filtroCategoria;
+    return matchSearch && matchCat;
+  });
 
   return (
     <AppShell>
@@ -89,7 +94,7 @@ export default function Dashboard() {
         >
           <div className="px-3 py-2.5 border-b border-white/10 flex-shrink-0">
             <p className="text-white font-semibold text-xs uppercase tracking-widest mb-2">
-              Rotas ({rotas.length})
+              Rotas ({rotasFiltradas.length}{rotasFiltradas.length !== rotas.length ? `/${rotas.length}` : ''})
             </p>
             <input
               type="text"
@@ -98,6 +103,31 @@ export default function Dashboard() {
               onChange={(e) => setSearch(e.target.value)}
               className="w-full bg-white/10 text-white placeholder-white/40 text-xs rounded px-2 py-1.5 outline-none focus:bg-white/20"
             />
+            {categorias.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                <button
+                  onClick={() => setFiltroCategoria('')}
+                  className="text-xs px-2 py-0.5 rounded-full border transition-colors"
+                  style={filtroCategoria === ''
+                    ? { background: '#00C0F3', borderColor: '#00C0F3', color: '#fff' }
+                    : { borderColor: 'rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.5)' }}
+                >
+                  Todas
+                </button>
+                {categorias.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setFiltroCategoria(filtroCategoria === cat ? '' : cat)}
+                    className="text-xs px-2 py-0.5 rounded-full border transition-colors"
+                    style={filtroCategoria === cat
+                      ? { background: '#00C0F3', borderColor: '#00C0F3', color: '#fff' }
+                      : { borderColor: 'rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.5)' }}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto py-1">

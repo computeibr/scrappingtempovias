@@ -11,6 +11,7 @@ export default function Monitor() {
   const [erro, setErro] = useState(null);
   const [countdown, setCountdown] = useState(INTERVALO);
   const [ordem, setOrdem] = useState('variacao'); // 'variacao' | 'alfabetica'
+  const [filtroCategoria, setFiltroCategoria] = useState('');
   const countRef = useRef(INTERVALO);
 
   async function fetchDados() {
@@ -43,16 +44,19 @@ export default function Monitor() {
     return () => clearInterval(tick);
   }, []);
 
+  const categorias = dados?.rotas
+    ? [...new Set(dados.rotas.map(r => r.categoria).filter(Boolean))].sort()
+    : [];
+
   const rotasOrdenadas = dados?.rotas
-    ? [...dados.rotas].sort((a, b) => {
-        if (ordem === 'alfabetica') {
-          return a.nome.localeCompare(b.nome, 'pt-BR');
-        }
-        // variação: sem dados vão para o final
-        const va = a.variacao ?? -Infinity;
-        const vb = b.variacao ?? -Infinity;
-        return Math.abs(vb) - Math.abs(va);
-      })
+    ? [...dados.rotas]
+        .filter(r => !filtroCategoria || (r.categoria || '') === filtroCategoria)
+        .sort((a, b) => {
+          if (ordem === 'alfabetica') return a.nome.localeCompare(b.nome, 'pt-BR');
+          const va = a.variacao ?? -Infinity;
+          const vb = b.variacao ?? -Infinity;
+          return Math.abs(vb) - Math.abs(va);
+        })
     : [];
 
   const resumo = dados?.rotas
@@ -74,6 +78,31 @@ export default function Monitor() {
             <p className="text-xs text-gray-400 mt-0.5">
               Variação em relação à média histórica · mesmo horário e dia da semana
             </p>
+            {categorias.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                <button
+                  onClick={() => setFiltroCategoria('')}
+                  className="text-xs px-2.5 py-0.5 rounded-full border transition-colors"
+                  style={filtroCategoria === ''
+                    ? { background: '#004A80', borderColor: '#004A80', color: '#fff' }
+                    : { borderColor: '#d1d5db', color: '#6b7280' }}
+                >
+                  Todas
+                </button>
+                {categorias.map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setFiltroCategoria(filtroCategoria === cat ? '' : cat)}
+                    className="text-xs px-2.5 py-0.5 rounded-full border transition-colors"
+                    style={filtroCategoria === cat
+                      ? { background: '#004A80', borderColor: '#004A80', color: '#fff' }
+                      : { borderColor: '#d1d5db', color: '#6b7280' }}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
