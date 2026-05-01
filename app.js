@@ -54,4 +54,5 @@ app.listen(port, () => {
   } else {
     console.log('ETL desativado (ETL_ENABLED != true).');
   }
+  require('./utils/monitorSistema').iniciar();
 });

@@ -7,6 +7,23 @@ const { soAdmin } = require('../middlewares/auth');
 
 const router = Router();
 
+// ─── CPU do processo (delta entre chamadas) ───────────────────────────────────
+let _lastCpu     = process.cpuUsage();
+let _lastCpuTime = Date.now();
+
+function cpuProcessoPct() {
+  const agora   = process.cpuUsage();
+  const elapsed = (Date.now() - _lastCpuTime) * 1000; // µs
+  if (elapsed < 50000) return null; // intervalo muito curto, descarta
+  const user = agora.user   - _lastCpu.user;
+  const sys  = agora.system - _lastCpu.system;
+  _lastCpu     = agora;
+  _lastCpuTime = Date.now();
+  const nucleos = os.cpus().length;
+  // (tempo cpu usado / tempo decorrido) / núcleos → % da capacidade total
+  return parseFloat(Math.min(100, ((user + sys) / elapsed / nucleos) * 100).toFixed(1));
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function formatarUptime(segundos) {
   const d = Math.floor(segundos / 86400);
@@ -45,6 +62,35 @@ router.get('/', async (req, res) => {
   } catch (err) {
     res.status(500).json({ ok: false, erro: err.message });
   }
+});
+
+// ─── GET /api/health/live — admin: métricas em tempo real, sem banco ─────────
+// Endpoint leve (< 1ms, sem query DB) — pode ser polled a cada 1s sem problema.
+router.get('/live', soAdmin, (req, res) => {
+  const carga   = os.loadavg();
+  const nucleos = os.cpus().length;
+  const mem     = process.memoryUsage();
+  const heapStats = v8.getHeapStatistics();
+  const threshold = parseFloat(process.env.ALERTA_CPU_PORCENTO || '80');
+
+  res.json({
+    carga: {
+      um:      parseFloat(carga[0].toFixed(2)),
+      cinco:   parseFloat(carga[1].toFixed(2)),
+      quinze:  parseFloat(carga[2].toFixed(2)),
+      nucleos,
+      pctUm:   parseFloat(Math.min(100, (carga[0] / nucleos) * 100).toFixed(1)),
+    },
+    cpuProcesso: cpuProcessoPct(),
+    memoria: {
+      heapUsado:  mem.heapUsed,
+      heapTotal:  mem.heapTotal,
+      heapLimite: heapStats.heap_size_limit,
+      rss:        mem.rss,
+    },
+    alertaThreshold: threshold,
+    timestamp: new Date().toISOString(),
+  });
 });
 
 // ─── GET /api/health/detalhes — admin: métricas completas do sistema ─────────
