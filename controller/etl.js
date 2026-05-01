@@ -54,7 +54,10 @@ let falhasConsecutivas = 0;
 let alertaJaEnviado = false;
 
 async function enviarAlertaEmail(mensagem) {
-  if (!process.env.ALERT_EMAIL || !process.env.ALERT_EMAIL_PASS) return;
+  if (!process.env.ALERT_EMAIL || !process.env.ALERT_EMAIL_PASS) {
+    console.warn('ETL: alerta de e-mail ignorado — ALERT_EMAIL ou ALERT_EMAIL_PASS não configurados.');
+    return;
+  }
   if (alertaJaEnviado) return;
   alertaJaEnviado = true;
 

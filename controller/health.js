@@ -1,5 +1,7 @@
 const { Router } = require('express');
+const nodemailer = require('nodemailer');
 const TempoVias = require('../models/tempovias');
+const { soAdmin } = require('../middlewares/auth');
 
 const router = Router();
 
@@ -29,6 +31,46 @@ router.get('/', async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ ok: false, erro: err.message });
+  }
+});
+
+// POST /api/health/test-email — admin only: dispara e-mail de teste imediatamente
+router.post('/test-email', soAdmin, async (req, res) => {
+  const { ALERT_EMAIL, ALERT_EMAIL_PASS, ALERT_EMAIL_TO } = process.env;
+
+  if (!ALERT_EMAIL || !ALERT_EMAIL_PASS) {
+    return res.status(400).json({
+      ok: false,
+      mensagem: 'ALERT_EMAIL ou ALERT_EMAIL_PASS não configurados nas variáveis de ambiente.',
+    });
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: ALERT_EMAIL, pass: ALERT_EMAIL_PASS },
+  });
+
+  const agora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+
+  try {
+    await transporter.sendMail({
+      from: `"Tempovias Monitor" <${ALERT_EMAIL}>`,
+      to: ALERT_EMAIL_TO || ALERT_EMAIL,
+      subject: '✅ Tempovias — Teste de e-mail funcionando',
+      text: [
+        'Este é um e-mail de teste enviado manualmente pelo painel de Saúde do Tempovias.',
+        '',
+        `Data/hora: ${agora}`,
+        `Remetente: ${ALERT_EMAIL}`,
+        `Destinatário: ${ALERT_EMAIL_TO || ALERT_EMAIL}`,
+        '',
+        'Se você recebeu este e-mail, a configuração de alertas está correta.',
+      ].join('\n'),
+    });
+
+    return res.json({ ok: true, mensagem: `E-mail enviado para ${ALERT_EMAIL_TO || ALERT_EMAIL}.` });
+  } catch (err) {
+    return res.status(500).json({ ok: false, mensagem: err.message });
   }
 });
 
