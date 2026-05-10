@@ -145,6 +145,7 @@ O banco utilizado é **PostgreSQL** (migrado do SQL Server). O schema é criado 
 | email    | VARCHAR(150) | E-mail único                                   |
 | password | VARCHAR(255) | Senha hasheada com bcrypt                      |
 | perfilId | INTEGER      | Perfil: **1=View** (só leitura), **2=User** (gerencia suas rotas), **99=Admin** (acesso total) |
+| avatarUrl | VARCHAR(500) | URL da foto de perfil (ex: `/files/avatars/user-1-123.jpg`) — nullable |
 
 ### Tabela `route_shares` — Compartilhamento de rotas
 | Campo    | Tipo         | Descrição                                      |
@@ -388,7 +389,8 @@ Após ter o primeiro Admin no banco, os demais usuários são criados via interf
 
 | Rota | Acesso | Descrição |
 |------|--------|-----------|
-| `/` | Autenticado | Dashboard — lista de rotas + gráfico de variação por hora + referência histórica (sem mapa) |
+| `/perfil` | Autenticado | Editar nome, e-mail, senha e foto de perfil (perfilId somente Admin) |
+| `/` | Autenticado | Dashboard — lista de rotas + gráfico + referência histórica; mobile com lista de rotas como tela inicial |
 | `/mapa` | Autenticado | Mapa Google Maps — todas as rotas; clicar abre modal com gráfico da rota |
 | `/monitor` | Autenticado | Monitor em tempo real — cards com variação vs. histórico, filtros de status e limiar %, auto-refresh 2 min |
 | `/feriados` | Autenticado | Dias não úteis — listagem pública, cadastro/remoção somente admin |

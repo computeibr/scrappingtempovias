@@ -351,6 +351,42 @@ export default function Agente() {
             </div>
           </Secao>
 
+          {/* Mobile UX */}
+          <Secao titulo="Mobile UX — Web App Responsivo">
+            <Item label="h-dvh">
+              <code className="bg-gray-100 px-1 rounded">h-dvh</code> no AppShell em vez de <code className="bg-gray-100 px-1 rounded">h-screen</code> — corrige o bug do Safari mobile onde a URL bar não é contabilizada na altura.
+            </Item>
+            <Item label="Bottom tab bar">
+              <code className="bg-gray-100 px-1 rounded">fixed bottom-0 md:hidden</code> — mostra todos os itens do perfil do usuário. Scroll horizontal quando não cabem. <code className="bg-gray-100 px-1 rounded">env(safe-area-inset-bottom)</code> para iPhone com notch. Cada item tem <code className="bg-gray-100 px-1 rounded">min-width: 64px</code>.
+            </Item>
+            <Item label="Sidebar desktop">
+              Toggle chevron no header da sidebar. Estado persistido em <code className="bg-gray-100 px-1 rounded">localStorage('tv_sidebar')</code>. Modo colapsado: <code className="bg-gray-100 px-1 rounded">w-14</code> (icon-only com tooltip). Transição <code className="bg-gray-100 px-1 rounded">duration-300</code>.
+            </Item>
+            <Item label="Dashboard master-detail">
+              Mobile sem rota selecionada → exibe lista de rotas completa (busca + chips + items). Ao selecionar → exibe análise com botão "← Rotas" para voltar. Desktop mantém sidebar lateral sempre visível.
+            </Item>
+            <Item label="Touch / CSS">
+              <code className="bg-gray-100 px-1 rounded">touch-action: manipulation</code> em botões e links — remove delay de 300ms. <code className="bg-gray-100 px-1 rounded">-webkit-tap-highlight-color: transparent</code> — sem flash azul. <code className="bg-gray-100 px-1 rounded">overscroll-behavior: none</code> — sem bounce iOS.
+            </Item>
+          </Secao>
+
+          {/* Perfil e Avatar */}
+          <Secao titulo="Perfil do Usuário e Avatar">
+            <Item label="Página /perfil">Acessível a todos os usuários logados. Permite editar nome, e-mail, senha e foto de perfil. <strong>perfilId é read-only</strong> — somente Admin altera via /usuarios.</Item>
+            <Item label="Upload de avatar">
+              Arquivo salvo em <code className="bg-gray-100 px-1 rounded">public/upload/avatars/user-{'{id}'}-{'{ts}'}.ext</code>, servido via <code className="bg-gray-100 px-1 rounded">/files/avatars/</code>. URL relativa armazenada em <code className="bg-gray-100 px-1 rounded">users.avatarUrl</code>. Limite: 2 MB, JPG/PNG/WebP. Silhueta SVG como fallback.
+            </Item>
+            <Item label="AppShell">Avatar (sidebar + header mobile) é <code className="bg-gray-100 px-1 rounded">&lt;Link to="/perfil"&gt;</code> — clicar na foto/silhueta abre o perfil.</Item>
+            <Item label="updateUser">Função no <code className="bg-gray-100 px-1 rounded">AuthContext</code> que atualiza estado + localStorage sem re-login — usada após salvar nome/e-mail/foto.</Item>
+            <Item label="Admin em Usuarios.jsx">
+              Admin vê avatar de cada usuário na lista. No form de edição: preview da foto, botão "Alterar foto" (upload), botão "Remover foto".{' '}
+              Endpoints: <code className="bg-gray-100 px-1 rounded">POST /api/auth/usuarios/:id/avatar</code> e <code className="bg-gray-100 px-1 rounded">DELETE /api/auth/usuarios/:id/avatar</code>.
+            </Item>
+            <Item label="Banco">
+              <code className="bg-gray-100 px-1 rounded">ALTER TABLE users ADD COLUMN IF NOT EXISTS "avatarUrl" VARCHAR(500);</code> — executar manualmente em produção.
+            </Item>
+          </Secao>
+
           {/* Saúde do sistema */}
           <Secao titulo="Saúde do Sistema — Observabilidade">
             <Item label="Origem do ETL">Badge na página <strong>/saude</strong> mostra 🟢 "Máquina local" ou 🔴 "VPS (failover)" — atualizado a cada 30s via <code className="bg-gray-100 px-1 rounded">/api/health/detalhes</code>.</Item>

@@ -49,8 +49,9 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 └── frontend/           ← React + Vite (porta 3000 no dev)
     ├── src/
     │   ├── pages/Login.jsx
-    │   ├── pages/Dashboard.jsx      ← sem mapa (custo API); linha ref. histórica no gráfico; card hora atual vs. ref.
+    │   ├── pages/Dashboard.jsx      ← sem mapa (custo API); linha ref. histórica no gráfico; master-detail mobile
     │   ├── pages/Mapa.jsx           ← mapa Google Maps + modal com gráfico ao clicar (todos os usuários)
+    │   ├── pages/Perfil.jsx         ← todos os usuários: editar nome, e-mail, senha e avatar (sem alterar perfilId)
     │   ├── pages/Admin.jsx         ← CRUD de rotas + preview mapa (fitBounds) + validação visual de campos + compartilhamento inline
     │   ├── pages/Ajustes.jsx       ← Admin only: assume autoria de rotas órfãs (creatorId IS NULL)
     │   ├── pages/Saude.jsx         ← Admin only: status, ETL, e-mail+teste, CPU/RAM ao vivo (1s); badge origem ETL
@@ -58,7 +59,7 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
     │   ├── pages/Monitor/          ← filtros: status + limiar variação (>5/25/50/75%); grid tela inteira; RouteCard header/main/footer
     │   ├── pages/Feriados/
     │   ├── pages/Metodologia/      ← acordeão "Rotas, Permissões e Compartilhamento" adicionado
-    │   ├── components/AppShell.jsx ← shell principal: sidebar com nav por perfil + header mobile
+    │   ├── components/AppShell.jsx ← h-dvh, bottom tab bar scrollável (todos itens), colapso sidebar desktop, avatar → /perfil
     │   ├── components/RouteMap.jsx ← Google Maps + DirectionsService
     │   ├── components/TimeChart.jsx ← linha azul (média período) + linha celeste tracejada (ref. 3 sem. mesmo dia)
     │   ├── components/StatsCards.jsx ← card hora atual vs. referência histórica com variação %
@@ -75,7 +76,7 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 | `tv_tempo_via` | Rotas: id, name, url, geometry, **categoria**, **creatorId** (FK→users), createdAt, updatedAt |
 | `route_shares` | Compartilhamentos: id, routeId (FK→tv_tempo_via), email, createdAt, updatedAt; UNIQUE(routeId,email) |
 | `tempovias` | Histórico: id, viaId (FK), nomedarota, tempo, km, leitura (timestamp), urlfoto, createdAt, updatedAt |
-| `users` | Usuários: id, name, email, password (bcrypt), perfilId (1=View, 2=User, 99=Admin), createdAt, updatedAt |
+| `users` | Usuários: id, name, email, password (bcrypt), perfilId (1=View, 2=User, 99=Admin), **avatarUrl** (VARCHAR 500, nullable), createdAt, updatedAt |
 | `etl_heartbeat` | Failover ETL: id=1 (única linha), last_run (TIMESTAMPTZ), source ('local' ou 'vps') |
 
 > Todos os `.sync()` estão **comentados** — o Sequelize não cria/altera tabelas automaticamente.
@@ -261,6 +262,14 @@ Cores extraídas do `identidadevisual2022.pdf` (Manual de Marca Prefeitura Rio):
 - Uptime: `formatarUptime` mostra segundos para uptimes < 1 min (ex: `45s`, `1min 30s`)
 - **Failover ETL local → VPS**: tabela `etl_heartbeat` (id=1) gravada após cada ciclo bem-sucedido. VPS com `ETL_FAILOVER=true` faz apenas um SELECT leve antes de cada ciclo — zero Puppeteer se primária ativa; assume com `ETL_CONCURRENCY=4` se primária ausente > `ETL_FAILOVER_MINUTOS` (padrão 10min). Advisory lock ainda protege race conditions. Logs identificam a fonte: `[local]` ou `[vps]`.
 - **Página Agente** (`/agente`, somente Admin): base de conhecimento do produto visível na interface. **Atualizar `frontend/src/pages/Agente.jsx` sempre que o CLAUDE.md for atualizado com novas decisões de produto, arquitetura ou stack.**
+- **Responsividade mobile**: `h-dvh` (fix Safari URL bar); bottom tab bar fixo (`fixed bottom-0 md:hidden`) scrollável horizontalmente com todos os itens do perfil; `env(safe-area-inset-bottom)` para iPhone; `touch-action: manipulation` sem delay 300ms; `overscroll-behavior: none` sem bounce iOS.
+- **Sidebar colapso desktop**: toggle chevron no header da sidebar; estado em `localStorage('tv_sidebar')`; modo icon-only (`w-14`) com tooltip; transição `duration-300`.
+- **Dashboard master-detail mobile**: quando sem rota selecionada, mobile mostra lista de rotas (busca + chips + items); ao selecionar, mostra análise com botão "← Rotas" para voltar. Desktop mantém sidebar lateral.
+- **Admin.jsx UX**: ícones compactos (lápis, share, lixeira) em vez de botões de texto; check de geometria à esquerda do lápis; nome da rota em linha separada acima dos botões; URL da rota removida da lista.
+- **Sistema de avatar**: arquivo salvo em `public/upload/avatars/user-{id}-{timestamp}.ext`; servido via `/files/avatars/`; URL relativa armazenada em `users.avatarUrl`; vite proxy `/files` adicionado para dev. Silhueta SVG como fallback quando sem foto.
+- **Página `/perfil`** (todos os usuários): editar nome, e-mail, senha + upload de avatar. `perfilId` é read-only para o próprio usuário — somente Admin pode alterar via `/usuarios`. `updateUser` no AuthContext atualiza estado+localStorage sem re-login.
+- **`PUT /api/auth/me`**: endpoint para qualquer usuário editar seus próprios dados (sem perfilId). Auth inline via JWT sem depender do middleware eAdmin.
+- **Usuarios.jsx**: mostra avatar no list; admin pode fazer upload (`POST /api/auth/usuarios/:id/avatar`) e remover foto (`DELETE /api/auth/usuarios/:id/avatar`) de qualquer usuário.
 - **Mapa separado do Dashboard** (`/mapa`, todos os usuários): mapa Google Maps em página dedicada para evitar custo de API no carregamento do Dashboard. Clicar numa rota abre modal com `TimeChart`. Dashboard mantém apenas lista + gráficos.
 - **Referência histórica no gráfico** (`TimeChart`): linha celeste tracejada mostra média das últimas 3 semanas, mesmo dia da semana de hoje, excluindo feriados. Parâmetro `diaSemanaRef` enviado pelo Dashboard. Tooltip mostra % de variação entre média do período e referência.
 - **Card de hora atual vs. referência** (`StatsCards`): quando rota selecionada, exibe card com média da hora atual, média de referência histórica e % de variação — base para alertas aos gestores.
