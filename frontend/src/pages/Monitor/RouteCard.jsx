@@ -1,3 +1,4 @@
+const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
 const STATUS_CONFIG = {
   acima:        { bg: 'bg-red-50',    border: 'border-red-200',    badge: 'bg-red-100 text-red-700',    dot: 'bg-red-500',    label: 'Acima da média' },
@@ -83,7 +84,7 @@ export default function RouteCard({ rota }) {
           <span>—</span>
         )}
         {rota.mediaHistorica && (
-          <span>{rota.mediaHistorica.baseadoEm} leitura(s) na base</span>
+          <span>{rota.mediaHistorica.baseadoEm} leituras · {DIAS[new Date().getDay()]}s · 3 sem.</span>
         )}
       </div>
     </div>

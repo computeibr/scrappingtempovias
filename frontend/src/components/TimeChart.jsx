@@ -11,20 +11,37 @@ import {
   ReferenceLine,
 } from 'recharts';
 
+const DIAS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
 
-  const media = payload.find((p) => p.dataKey === 'media')?.value;
-  const min = payload.find((p) => p.dataKey === 'min')?.value;
-  const max = payload.find((p) => p.dataKey === 'max')?.value;
-  const leituras = payload.find((p) => p.dataKey === 'leituras')?.value;
+  const media          = payload.find((p) => p.dataKey === 'media')?.value;
+  const min            = payload.find((p) => p.dataKey === 'min')?.value;
+  const max            = payload.find((p) => p.dataKey === 'max')?.value;
+  const leituras       = payload.find((p) => p.dataKey === 'leituras')?.value;
+  const mediaReferencia = payload.find((p) => p.dataKey === 'mediaReferencia')?.value;
 
   return (
     <div className="bg-navy-900 text-white rounded-lg shadow-xl px-4 py-3 text-sm border border-white/10">
       <p className="font-bold text-sky mb-2">{label}</p>
       {media !== null && media !== undefined && (
         <p className="text-white">
-          Média: <span className="font-semibold">{media} min</span>
+          Média período: <span className="font-semibold">{media} min</span>
+        </p>
+      )}
+      {mediaReferencia !== null && mediaReferencia !== undefined && (
+        <p className="mt-0.5" style={{ color: '#00C0F3' }}>
+          Referência 3 sem.: <span className="font-semibold">{mediaReferencia} min</span>
+        </p>
+      )}
+      {media !== null && media !== undefined && mediaReferencia !== null && mediaReferencia !== undefined && (
+        <p className="text-white/50 text-xs mt-1">
+          Variação: {media > mediaReferencia
+            ? <span className="text-red-300">+{((media - mediaReferencia) / mediaReferencia * 100).toFixed(0)}% acima</span>
+            : media < mediaReferencia
+            ? <span className="text-green-300">{(((media - mediaReferencia) / mediaReferencia) * 100).toFixed(0)}% abaixo</span>
+            : <span>igual à referência</span>}
         </p>
       )}
       {min !== null && min !== undefined && (
@@ -87,7 +104,9 @@ export default function TimeChart({ historico, rotaName, loading }) {
             Variação de tempo por hora do dia
           </h3>
           {rotaName && (
-            <p className="text-xs text-gray-400 mt-0.5">{rotaName}</p>
+            <p className="text-xs text-gray-400 mt-0.5">
+              {rotaName} · referência: {DIAS[new Date().getDay()]}s das últimas 3 semanas úteis
+            </p>
           )}
         </div>
 
@@ -150,7 +169,19 @@ export default function TimeChart({ historico, rotaName, loading }) {
             connectNulls
           />
 
-          {/* Linha de média */}
+          {/* Linha de referência histórica — 3 semanas, mesmo dia da semana, sem feriados */}
+          <Line
+            type="monotone"
+            dataKey="mediaReferencia"
+            stroke="#00C0F3"
+            strokeWidth={1.5}
+            strokeDasharray="6 3"
+            dot={false}
+            name={`Ref. ${DIAS[new Date().getDay()]}s 3 sem.`}
+            connectNulls
+          />
+
+          {/* Linha de média do período */}
           <Line
             type="monotone"
             dataKey="media"
@@ -158,7 +189,7 @@ export default function TimeChart({ historico, rotaName, loading }) {
             strokeWidth={2.5}
             dot={false}
             activeDot={{ r: 5, fill: '#004A80', stroke: '#fff', strokeWidth: 2 }}
-            name="Média (min)"
+            name="Média período"
             connectNulls
           />
 

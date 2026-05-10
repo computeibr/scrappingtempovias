@@ -51,11 +51,11 @@ router.get('/rotas', eAdmin, async (req, res) => {
   }
 });
 
-// GET /api/dashboard/historico/:id?dataInicio=&dataFim=&diasSemana=
+// GET /api/dashboard/historico/:id?dataInicio=&dataFim=&diasSemana=&diaSemanaRef=
 router.get('/historico/:id', eAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { dataInicio, dataFim, diasSemana } = req.query;
+    const { dataInicio, dataFim, diasSemana, diaSemanaRef } = req.query;
 
     const where = { viaId: id };
 
@@ -133,8 +133,59 @@ router.get('/historico/:id', eAdmin, async (req, res) => {
       }))
       .sort((a, b) => a.dia.localeCompare(b.dia));
 
+    // ── Linha de referência: últimas 3 semanas, mesmo dia da semana, excluindo feriados ──
+    let mediaReferenciaPorHora = null;
+    if (diaSemanaRef !== undefined) {
+      const diaSemana = parseInt(diaSemanaRef, 10); // 0=Dom...6=Sab (JS convention)
+      const tresSemanasAtras = DateTime.now().setZone(TZ).minus({ days: 21 });
+
+      const registrosDnu = await (async () => {
+        try {
+          const DiasNaoUteis = require('../models/DiasNaoUteis');
+          return await DiasNaoUteis.findAll({
+            where: { data: { [Op.gte]: tresSemanasAtras.toISODate() } },
+            attributes: ['data'],
+          });
+        } catch { return []; }
+      })();
+      const datasExcluidas = new Set(registrosDnu.map((d) => d.data));
+
+      const registros3sem = await TempoVias.findAll({
+        where: { viaId: id, leitura: { [Op.gte]: tresSemanasAtras.toJSDate() } },
+        attributes: ['tempo', 'leitura'],
+      });
+
+      const ref = Array.from({ length: 24 }, () => ({ total: 0, count: 0 }));
+      registros3sem.forEach((r) => {
+        const dt = toSP(r.leitura);
+        if (datasExcluidas.has(dt.toISODate())) return;
+        if (dt.weekday % 7 !== diaSemana) return; // filtra pelo dia da semana atual
+        const min = extrairMinutos(r.tempo);
+        if (min !== null) {
+          ref[dt.hour].total += min;
+          ref[dt.hour].count++;
+        }
+      });
+
+      mediaReferenciaPorHora = ref.map((h) =>
+        h.count > 0 ? parseFloat((h.total / h.count).toFixed(1)) : null
+      );
+
+      const horasComRef = mediaReferenciaPorHora.filter((v) => v !== null).length;
+      console.log(`[historico-ref] rota=${id} diaSemana=${diaSemanaRef} registros3sem=${registros3sem.length} datasExcluidas=${datasExcluidas.size} horasComReferencia=${horasComRef}`);
+      if (horasComRef === 0) {
+        console.log(`[historico-ref] Nenhum registro encontrado para diaSemana=${diaSemanaRef} nas últimas 3 semanas.`);
+      }
+    }
+
+    // Mescla mediaReferencia em cada hora, se calculada
+    const mediasPorHoraFinal = mediasPorHora.map((h, idx) => ({
+      ...h,
+      ...(mediaReferenciaPorHora ? { mediaReferencia: mediaReferenciaPorHora[idx] } : {}),
+    }));
+
     return res.json({
-      mediasPorHora,
+      mediasPorHora: mediasPorHoraFinal,
       evolucaoDiaria,
       totalRegistros: filtrados.length,
     });

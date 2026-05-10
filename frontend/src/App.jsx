@@ -10,6 +10,7 @@ import Usuarios from './pages/Usuarios';
 import Ajustes from './pages/Ajustes';
 import Saude from './pages/Saude';
 import Agente from './pages/Agente';
+import Mapa from './pages/Mapa';
 
 function PrivateRoute({ children }) {
   const { token } = useAuth();
@@ -83,6 +84,14 @@ export default function App() {
             element={
               <PrivateRoute>
                 <Agente />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/mapa"
+            element={
+              <PrivateRoute>
+                <Mapa />
               </PrivateRoute>
             }
           />

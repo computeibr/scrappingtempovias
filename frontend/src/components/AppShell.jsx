@@ -9,6 +9,11 @@ const Icons = {
       <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" />
     </svg>
   ),
+  map: (
+    <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
+      <path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z"/>
+    </svg>
+  ),
   monitor: (
     <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
       <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4 2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z" />
@@ -75,6 +80,7 @@ const LogoIcon = ({ size = 'w-4 h-4' }) => (
 const NAV_ITEMS = [
   { to: '/',            label: 'Dashboard',      icon: Icons.dashboard },
   { to: '/monitor',     label: 'Monitor',         icon: Icons.monitor   },
+  { to: '/mapa',        label: 'Mapa',            icon: Icons.map       },
   { to: '/feriados',    label: 'Dias Não Úteis',  icon: Icons.calendar  },
   { to: '/metodologia', label: 'Metodologia',     icon: Icons.book      },
 ];

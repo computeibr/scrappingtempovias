@@ -7,7 +7,6 @@ import api from '../services/api';
 import AppShell from '../components/AppShell';
 import StatsCards from '../components/StatsCards';
 import FilterPanel from '../components/FilterPanel';
-import RouteMap from '../components/RouteMap';
 import TimeChart from '../components/TimeChart';
 import { routeColor } from '../utils/mapUtils';
 
@@ -20,7 +19,6 @@ export default function Dashboard() {
   const [loadingHistorico, setLoadingHistorico] = useState(false);
   const [search, setSearch] = useState('');
   const [filtroCategoria, setFiltroCategoria] = useState('');
-  const [snapshot, setSnapshot] = useState({});
 
   const [filters, setFilters] = useState({
     dataInicio: null,
@@ -31,14 +29,12 @@ export default function Dashboard() {
   useEffect(() => {
     async function fetchInit() {
       try {
-        const [rotasRes, resumoRes, snapshotRes] = await Promise.all([
+        const [rotasRes, resumoRes] = await Promise.all([
           api.get('/api/dashboard/rotas'),
           api.get('/api/dashboard/resumo'),
-          api.get('/api/dashboard/snapshot'),
         ]);
         setRotas(rotasRes.data.rotas);
         setResumo(resumoRes.data);
-        setSnapshot(snapshotRes.data.snapshot || {});
       } catch (err) {
         console.error(err);
       } finally {
@@ -53,7 +49,7 @@ export default function Dashboard() {
       if (!id) { setHistorico(null); return; }
       setLoadingHistorico(true);
       try {
-        const params = {};
+        const params = { diaSemanaRef: new Date().getDay() }; // 0=Dom...6=Sab
         if (filters.dataInicio) params.dataInicio = format(filters.dataInicio, 'yyyy-MM-dd');
         if (filters.dataFim) params.dataFim = format(filters.dataFim, 'yyyy-MM-dd');
         if (filters.diasSemana.length) params.diasSemana = filters.diasSemana.join(',');
@@ -190,19 +186,8 @@ export default function Dashboard() {
           </div>
         </aside>
 
-        {/* Área principal: mapa (topo) + análises (baixo) */}
+        {/* Área principal: análises */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Mapa: mostra TODAS as rotas — altura fixa para deixar espaço para análises */}
-          <div className="flex-shrink-0" style={{ height: 380 }}>
-            <RouteMap
-              rotas={rotas}
-              rotaAtiva={rotaAtiva}
-              snapshot={snapshot}
-              onRotaClick={selectRota}
-            />
-          </div>
-
-          {/* Painel de análises */}
           <div className="flex-1 overflow-y-auto bg-[#F0F0F0]">
             {!rotaAtiva ? (
               <div className="h-full flex items-center justify-center">
