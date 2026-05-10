@@ -8,6 +8,50 @@ import { parseGoogleMapsUrl } from '../utils/mapUtils';
 
 const LIBRARIES = ['geometry', 'places'];
 const FORM_VAZIO = { name: '', url: '', categoria: '' };
+const RIO_CENTER = { lat: -22.9068, lng: -43.1729 };
+
+// Fora do componente para evitar remount a cada render
+function PreviewMap({ path }) {
+  if (!path || path.length === 0) return null;
+
+  function onMapLoad(map) {
+    const bounds = new window.google.maps.LatLngBounds();
+    path.forEach(pt => bounds.extend(pt));
+    map.fitBounds(bounds, { top: 50, right: 50, bottom: 50, left: 50 });
+  }
+
+  return (
+    <div className="mt-4 rounded-xl overflow-hidden border-2 border-[#004A80]" style={{ height: 450 }}>
+      <GoogleMap
+        mapContainerStyle={{ width: '100%', height: '100%' }}
+        center={RIO_CENTER}
+        zoom={11}
+        options={{ zoomControl: true, scrollwheel: true, streetViewControl: false, mapTypeControl: false, fullscreenControl: true }}
+        onLoad={onMapLoad}
+      >
+        <Polyline
+          path={path}
+          options={{ strokeColor: '#004A80', strokeWeight: 6, strokeOpacity: 0.95 }}
+        />
+      </GoogleMap>
+    </div>
+  );
+}
+
+function PreviewStatus({ pv }) {
+  if (!pv || pv.path) return null;
+  const msg =
+    pv.status === 'URL_INVALIDA'
+      ? 'URL não reconhecida. Use: google.com/maps/dir/Origem/Destino'
+      : pv.status === 'API_NOT_LOADED'
+      ? 'API do Google Maps ainda carregando. Aguarde e tente novamente.'
+      : `Traçado não encontrado (${pv.status}). Verifique se a Directions API está habilitada.`;
+  return (
+    <p className="mt-2 text-sm px-3 py-2 rounded-lg" style={{ background: '#FEE2E2', color: '#B91C1C' }}>
+      {msg}
+    </p>
+  );
+}
 
 export default function Admin() {
   const { user } = useAuth();
@@ -32,6 +76,8 @@ export default function Admin() {
   const [erro, setErro]                           = useState(false);
   const [carregando, setCarregando]               = useState(false);
   const [filtroCategoria, setFiltroCategoria]     = useState('');
+  const [tentouCadastrar, setTentouCadastrar]     = useState(false);
+  const [tentouEditar, setTentouEditar]           = useState(false);
 
   useEffect(() => {
     if (!user || user.perfilId < 2) {
@@ -95,6 +141,8 @@ export default function Admin() {
   // ─── CRUD ───────────────────────────────────────────────────────────────────
   async function handleCadastrar(e) {
     e.preventDefault();
+    setTentouCadastrar(true);
+    if (!form.name.trim() || !form.url.trim() || !form.categoria.trim()) return;
     setMensagem(null);
     setCarregando(true);
     try {
@@ -115,6 +163,8 @@ export default function Admin() {
 
   async function handleSalvarEdicao(e) {
     e.preventDefault();
+    setTentouEditar(true);
+    if (!editando.name.trim() || !editando.url.trim()) return;
     setMensagem(null);
     setCarregando(true);
     try {
@@ -183,44 +233,9 @@ export default function Admin() {
     return acc;
   }, {});
 
-  // ─── Sub-componentes inline ─────────────────────────────────────────────────
-  function PreviewMap({ path }) {
-    if (!path) return null;
-    return (
-      <div className="mt-3 rounded-xl overflow-hidden border border-gray-200" style={{ height: 240 }}>
-        <GoogleMap
-          mapContainerStyle={{ width: '100%', height: '100%' }}
-          center={path[Math.floor(path.length / 2)]}
-          zoom={13}
-          options={{ disableDefaultUI: true, zoomControl: true }}
-        >
-          <Polyline
-            path={path}
-            options={{ strokeColor: '#004A80', strokeWeight: 5, strokeOpacity: 0.9 }}
-          />
-        </GoogleMap>
-      </div>
-    );
-  }
-
-  function PreviewStatus({ pv }) {
-    if (!pv || pv.path) return null;
-    const msg =
-      pv.status === 'URL_INVALIDA'
-        ? 'URL não reconhecida. Use: google.com/maps/dir/Origem/Destino'
-        : pv.status === 'API_NOT_LOADED'
-        ? 'API do Google Maps ainda carregando. Aguarde e tente novamente.'
-        : `Traçado não encontrado (${pv.status}). Verifique se a Directions API está habilitada.`;
-    return (
-      <p className="mt-2 text-sm px-3 py-2 rounded-lg" style={{ background: '#FEE2E2', color: '#B91C1C' }}>
-        {msg}
-      </p>
-    );
-  }
-
   return (
     <AppShell>
-      <div className="flex-1 overflow-y-auto p-4 max-w-3xl mx-auto w-full">
+      <div className="flex-1 overflow-y-auto p-4 max-w-5xl mx-auto w-full">
         <h1 className="text-2xl font-bold mb-6" style={{ color: '#004A80' }}>
           Gerenciar Rotas
         </h1>
@@ -234,26 +249,39 @@ export default function Admin() {
             <form onSubmit={handleCadastrar} className="flex flex-col gap-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nome da rota</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nome da rota <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     value={form.name}
                     onChange={e => setForm({ ...form, name: e.target.value })}
                     placeholder="Ex: Centro → Barra"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
-                    required
+                    className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ${
+                      tentouCadastrar && !form.name.trim() ? 'border-red-400 bg-red-50' : 'border-gray-300'
+                    }`}
                   />
+                  {tentouCadastrar && !form.name.trim() && (
+                    <p className="text-xs text-red-500 mt-1">Informe o nome da rota.</p>
+                  )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Categoria <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     value={form.categoria}
                     onChange={e => setForm({ ...form, categoria: e.target.value })}
                     placeholder="Ex: Zona Sul, Corredor Av. Brasil"
                     list="categorias-existentes"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ${
+                      tentouCadastrar && !form.categoria.trim() ? 'border-red-400 bg-red-50' : 'border-gray-300'
+                    }`}
                   />
+                  {tentouCadastrar && !form.categoria.trim() && (
+                    <p className="text-xs text-red-500 mt-1">Informe a categoria.</p>
+                  )}
                   <datalist id="categorias-existentes">
                     {categorias.filter(c => c !== 'Sem categoria').map(c => (
                       <option key={c} value={c} />
@@ -263,15 +291,18 @@ export default function Admin() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">URL do Google Maps</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  URL do Google Maps <span className="text-red-500">*</span>
+                </label>
                 <div className="flex gap-2">
                   <input
                     type="url"
                     value={form.url}
                     onChange={e => { setForm({ ...form, url: e.target.value }); setPreview(null); }}
                     placeholder="https://www.google.com/maps/dir/..."
-                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
-                    required
+                    className={`flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none ${
+                      tentouCadastrar && !form.url.trim() ? 'border-red-400 bg-red-50' : 'border-gray-300'
+                    }`}
                   />
                   <button
                     type="button"
@@ -283,9 +314,13 @@ export default function Admin() {
                     {previewCarregando ? 'Buscando...' : !isLoaded ? 'Carregando...' : 'Visualizar'}
                   </button>
                 </div>
-                <p className="text-xs text-gray-400 mt-1">
-                  Clique em "Visualizar" para confirmar o traçado antes de salvar.
-                </p>
+                {tentouCadastrar && !form.url.trim() ? (
+                  <p className="text-xs text-red-500 mt-1">Informe a URL do Google Maps.</p>
+                ) : (
+                  <p className="text-xs text-gray-400 mt-1">
+                    Clique em "Visualizar" para confirmar o traçado antes de salvar.
+                  </p>
+                )}
               </div>
 
               <PreviewMap path={preview?.path} />
@@ -304,14 +339,19 @@ export default function Admin() {
                 </p>
               )}
 
-              <button
-                type="submit"
-                disabled={carregando || !isLoaded || !form.name.trim() || !form.url.trim() || !form.categoria.trim()}
-                className="self-start px-6 py-2 rounded-lg text-white text-sm font-semibold disabled:opacity-60"
-                style={{ background: '#004A80' }}
-              >
-                {carregando ? 'Cadastrando...' : 'Cadastrar'}
-              </button>
+              <div className="flex items-center gap-4 flex-wrap">
+                <button
+                  type="submit"
+                  disabled={carregando || !isLoaded}
+                  className="px-6 py-2 rounded-lg text-white text-sm font-semibold disabled:opacity-60"
+                  style={{ background: '#004A80' }}
+                >
+                  {carregando ? 'Cadastrando...' : 'Cadastrar'}
+                </button>
+                <p className="text-xs text-gray-400">
+                  Campos marcados com <span className="text-red-500">*</span> são obrigatórios
+                </p>
+              </div>
             </form>
           </div>
         )}
@@ -325,14 +365,20 @@ export default function Admin() {
             <form onSubmit={handleSalvarEdicao} className="flex flex-col gap-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nome da rota</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nome da rota <span className="text-red-500">*</span>
+                  </label>
                   <input
                     type="text"
                     value={editando.name}
                     onChange={e => setEditando({ ...editando, name: e.target.value })}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
-                    required
+                    className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ${
+                      tentouEditar && !editando.name.trim() ? 'border-red-400 bg-red-50' : 'border-gray-300'
+                    }`}
                   />
+                  {tentouEditar && !editando.name.trim() && (
+                    <p className="text-xs text-red-500 mt-1">Informe o nome da rota.</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
@@ -347,14 +393,17 @@ export default function Admin() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">URL do Google Maps</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  URL do Google Maps <span className="text-red-500">*</span>
+                </label>
                 <div className="flex gap-2">
                   <input
                     type="url"
                     value={editando.url}
                     onChange={e => { setEditando({ ...editando, url: e.target.value }); setPreview(null); }}
-                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
-                    required
+                    className={`flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none ${
+                      tentouEditar && !editando.url.trim() ? 'border-red-400 bg-red-50' : 'border-gray-300'
+                    }`}
                   />
                   <button
                     type="button"
@@ -366,6 +415,9 @@ export default function Admin() {
                     {previewCarregando ? 'Buscando...' : 'Visualizar'}
                   </button>
                 </div>
+                {tentouEditar && !editando.url.trim() && (
+                  <p className="text-xs text-red-500 mt-1">Informe a URL do Google Maps.</p>
+                )}
               </div>
 
               <PreviewMap path={preview?.path} />
@@ -373,7 +425,7 @@ export default function Admin() {
 
               {mensagem && (
                 <p className="text-sm px-3 py-2 rounded-lg"
-                   style={{ background: erro ? '#FEE2E2' : '#DCFCE7', color: erro ? '#B91C1C' : '#166534' }}>
+                   style={{ background: erro ? '#FEE2E2' : '#DCFCE7', color: erro ? '#B91C1C' : '#166634' }}>
                   {mensagem}
                 </p>
               )}
@@ -389,7 +441,7 @@ export default function Admin() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setEditando(null); setPreview(null); }}
+                  onClick={() => { setEditando(null); setPreview(null); setTentouEditar(false); }}
                   className="px-4 py-2 rounded-lg text-sm border border-gray-300 text-gray-600"
                 >
                   Cancelar

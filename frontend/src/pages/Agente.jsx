@@ -268,6 +268,23 @@ export default function Agente() {
             <Item label="Distâncias">Campo km armazena tanto "7,4 km" quanto "250 m" — rotas curtas exibem metros. XPath exclui "min" para não capturar o campo de tempo como distância.</Item>
           </Secao>
 
+          {/* Gerenciar Rotas */}
+          <Secao titulo="Gerenciar Rotas (/admin) — Cadastro e Mapa">
+            <Item label="Acesso">perfilId ≥ 2. Usuário vê e edita apenas as suas rotas; Admin vê e edita todas.</Item>
+            <Item label="Preview do traçado">
+              Ao clicar em "Visualizar", chama o <code className="bg-gray-100 px-1 rounded">DirectionsService</code> do Google Maps.
+              O mapa usa <code className="bg-gray-100 px-1 rounded">fitBounds</code> com padding de 50px para ajustar o zoom automaticamente ao traçado — funciona para rotas curtas e longas.
+              Centro padrão: Rio de Janeiro (<code className="bg-gray-100 px-1 rounded">-22.9068, -43.1729</code>).
+            </Item>
+            <Item label="Anti-pattern React">
+              <code className="bg-gray-100 px-1 rounded">PreviewMap</code> é definido <strong>fora</strong> do componente <code className="bg-gray-100 px-1 rounded">Admin</code> — componentes definidos dentro do pai são recriados a cada render, causando remount do GoogleMap e impedindo o <code className="bg-gray-100 px-1 rounded">fitBounds</code> de funcionar. Sempre mover sub-componentes para escopo de módulo.
+            </Item>
+            <Item label="Validação visual">
+              Campos obrigatórios têm <span className="text-red-500">*</span> no label. Botão sempre clicável — ao clicar com campos vazios, ativa estado <code className="bg-gray-100 px-1 rounded">tentouCadastrar</code>: borda vermelha + fundo vermelho claro + mensagem por campo. Retorna cedo sem chamar a API.
+            </Item>
+            <Item label="Campos obrigatórios">Nome da rota <span className="text-red-500">*</span> · URL do Google Maps <span className="text-red-500">*</span> · Categoria <span className="text-red-500">*</span> (no cadastro).</Item>
+          </Secao>
+
           {/* Perfis */}
           <Secao titulo="Controle de Acesso — Perfis de Usuário">
             <TabelaAcesso />

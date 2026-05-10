@@ -51,7 +51,7 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
     │   ├── pages/Login.jsx
     │   ├── pages/Dashboard.jsx      ← sem mapa (custo API); linha ref. histórica no gráfico; card hora atual vs. ref.
     │   ├── pages/Mapa.jsx           ← mapa Google Maps + modal com gráfico ao clicar (todos os usuários)
-    │   ├── pages/Admin.jsx         ← CRUD de rotas + categoria + filtro + compartilhamento inline
+    │   ├── pages/Admin.jsx         ← CRUD de rotas + preview mapa (fitBounds) + validação visual de campos + compartilhamento inline
     │   ├── pages/Ajustes.jsx       ← Admin only: assume autoria de rotas órfãs (creatorId IS NULL)
     │   ├── pages/Saude.jsx         ← Admin only: status, ETL, e-mail+teste, CPU/RAM ao vivo (1s); badge origem ETL
     │   ├── pages/Usuarios.jsx      ← CRUD de usuários (só Admin 99)
@@ -246,7 +246,8 @@ Cores extraídas do `identidadevisual2022.pdf` (Manual de Marca Prefeitura Rio):
 - `categoria` de rota é campo `VARCHAR(100)` livre na própria tabela (sem tabela separada) — input com `<datalist>` no frontend sugere categorias existentes
 - Compartilhamento por e-mail (não por user_id) para permitir compartilhar com pessoas sem conta
 - `GET /rotasvia` permanece público (ETL); `GET /rotasvia/minhas` é o endpoint autenticado do frontend
-- Botão Cadastrar em `Admin.jsx` só habilita quando name + url + categoria estão todos preenchidos
+- **Validação de formulário em `Admin.jsx`**: botão sempre clicável; ao clicar com campos vazios, ativa `tentouCadastrar/tentouEditar` → borda vermelha + fundo vermelho claro + mensagem por campo + asterisco nos labels obrigatórios. Retorna cedo sem chamar a API se inválido.
+- **`PreviewMap` em `Admin.jsx` fora do componente pai**: componentes definidos dentro de outro componente são recriados a cada render (anti-pattern), causando remount do GoogleMap e impedindo `fitBounds` de funcionar. Mover para escopo de módulo resolve. Usar `fitBounds` com padding em vez de `zoom` fixo para adaptar ao traçado de qualquer tamanho de rota. Centro padrão = Rio de Janeiro (`-22.9068, -43.1729`).
 - Helper `utils/rotasVisiveis.js` centraliza a lógica de filtro de visibilidade — usado em `dashboard.js` e `monitor.js` para evitar duplicação
 - Dashboard e Monitor filtram rotas por visibilidade do usuário (Admin vê tudo; outros veem as suas + legadas + compartilhadas com seu e-mail)
 - Filtro de categoria por chips clicáveis: Dashboard (sidebar) e Monitor (barra superior) — chips aparecem automaticamente quando existem categorias cadastradas

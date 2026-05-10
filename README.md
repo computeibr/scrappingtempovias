@@ -393,7 +393,7 @@ Após ter o primeiro Admin no banco, os demais usuários são criados via interf
 | `/monitor` | Autenticado | Monitor em tempo real — cards com variação vs. histórico, filtros de status e limiar %, auto-refresh 2 min |
 | `/feriados` | Autenticado | Dias não úteis — listagem pública, cadastro/remoção somente admin |
 | `/metodologia` | Autenticado | Documentação técnica — metodologia de coleta, cálculos e perguntas frequentes |
-| `/admin` | perfilId ≥ 2 | Gerenciar rotas — cadastro, edição e remoção com preview no mapa |
+| `/admin` | perfilId ≥ 2 | Gerenciar rotas — cadastro e edição com preview do traçado no mapa (fitBounds automático) + validação visual de campos obrigatórios |
 | `/agente` | Admin (99) | Base de conhecimento do produto — stack, arquitetura, ETL, variáveis |
 | `/saude` | Admin (99) | CPU/RAM ao vivo, status ETL, origem do ETL (local ou VPS failover) |
 | `/login` | Público | Autenticação JWT |
