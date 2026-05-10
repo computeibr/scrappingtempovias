@@ -232,6 +232,9 @@ export default function Agente() {
             <Item label="Mapa (/mapa)">
               Página separada com o mapa Google Maps completo. Clicar em qualquer rota abre modal com o <code className="bg-gray-100 px-1 rounded">TimeChart</code> daquela rota. Visível a todos os usuários autenticados.
             </Item>
+            <Item label="Perfil (/perfil)">
+              Todos os usuários logados. Editar nome, e-mail, senha e foto de perfil. <strong>perfilId é read-only</strong> — somente Admin pode alterar via <code className="bg-gray-100 px-1 rounded">/usuarios</code>. Avatar com overlay de câmera, upload imediato (JPG/PNG/WebP · 2 MB). Acessível clicando no avatar da sidebar ou do header mobile.
+            </Item>
           </Secao>
 
           {/* Monitor */}
