@@ -22,3 +22,10 @@ services:
       DB_SSL: ${DB_SSL:-false}
       ETL_ENABLED: ${ETL_ENABLED:-false}
       ETL_FAILOVER: ${ETL_FAILOVER:-false}
+    volumes:
+      # Volume persistente para avatares — sobrevive a qualquer redeploy
+      - uploads:/app/public/upload
+
+volumes:
+  uploads:
+    driver: local
