@@ -4,7 +4,13 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Identidade visual Prefeitura Rio / Tempovias
+        // Nomes semânticos (Aliases)
+        'primary': '#13335A',
+        'secondary': '#2C678C', 
+        'background': '#ECEDED',
+        'terciary': '#42B9EB',
+
+        // Sua escala técnica atual
         navy: {
           900: '#13335A',
           800: '#15335A',

@@ -15,7 +15,7 @@
   }
 
   body {
-    @apply bg-brand-gray text-brand-dark font-sans;
+    @apply bg-brand-gray-mid text-brand-dark font-sans;
     margin: 0;
     padding: 0;
     /* Melhora rendering de texto em mobile */
@@ -28,6 +28,9 @@
   }
 
   :root {
+    --primary: #13335A;
+    --secondary: #2C678C;
+    --terciary: #42B9EB;
     --navy: #004A80;
     --navy-dark: #13335A;
     --sky: #00C0F3;
@@ -73,7 +76,7 @@ nav.overflow-x-auto::-webkit-scrollbar {
   background: #f0f0f0;
 }
 ::-webkit-scrollbar-thumb {
-  background: #004A80;
+  background: #13335A;
   border-radius: 3px;
 }
 
