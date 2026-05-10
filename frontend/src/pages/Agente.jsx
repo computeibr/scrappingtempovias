@@ -360,7 +360,10 @@ export default function Agente() {
               <code className="bg-gray-100 px-1 rounded">fixed bottom-0 md:hidden</code> — mostra todos os itens do perfil do usuário. Scroll horizontal quando não cabem. <code className="bg-gray-100 px-1 rounded">env(safe-area-inset-bottom)</code> para iPhone com notch. Cada item tem <code className="bg-gray-100 px-1 rounded">min-width: 64px</code>.
             </Item>
             <Item label="Sidebar desktop">
-              Toggle chevron no header da sidebar. Estado persistido em <code className="bg-gray-100 px-1 rounded">localStorage('tv_sidebar')</code>. Modo colapsado: <code className="bg-gray-100 px-1 rounded">w-14</code> (icon-only com tooltip). Transição <code className="bg-gray-100 px-1 rounded">duration-300</code>.
+              Toggle chevron no header da sidebar. Estado persistido em <code className="bg-gray-100 px-1 rounded">localStorage('tv_sidebar')</code>. Modo colapsado: <code className="bg-gray-100 px-1 rounded">w-14</code> (icon-only com tooltip). Transição <code className="bg-gray-100 px-1 rounded">duration-300</code>. Background da sidebar: <code className="bg-gray-100 px-1 rounded">#13335A</code>.
+            </Item>
+            <Item label="Fix logout mobile">
+              Bottom tab bar fica <code className="bg-gray-100 px-1 rounded">hidden</code> quando <code className="bg-gray-100 px-1 rounded">navOpen === true</code> — elimina sobreposição de z-index que bloqueava o botão "Sair" em telas pequenas (ex: Samsung Galaxy A07).
             </Item>
             <Item label="Dashboard master-detail">
               Mobile sem rota selecionada → exibe lista de rotas completa (busca + chips + items). Ao selecionar → exibe análise com botão "← Rotas" para voltar. Desktop mantém sidebar lateral sempre visível.
@@ -384,6 +387,9 @@ export default function Agente() {
             </Item>
             <Item label="Banco">
               <code className="bg-gray-100 px-1 rounded">ALTER TABLE users ADD COLUMN IF NOT EXISTS "avatarUrl" VARCHAR(500);</code> — executar manualmente em produção.
+            </Item>
+            <Item label="Persistência no Docker">
+              <code className="bg-gray-100 px-1 rounded">docker-compose.yml</code> monta named volume <code className="bg-gray-100 px-1 rounded">uploads</code> em <code className="bg-gray-100 px-1 rounded">/app/public/upload</code> — avatares sobrevivem a qualquer redeploy. Sem o volume, a pasta é recriada vazia a cada deploy.
             </Item>
           </Secao>
 

@@ -402,6 +402,19 @@ Após ter o primeiro Admin no banco, os demais usuários são criados via interf
 
 ---
 
+## Avatares — armazenamento persistente
+
+As fotos de perfil ficam em `/app/public/upload/avatars/` dentro do container. O `docker-compose.yml` monta um **named volume** `uploads` nesse caminho, garantindo que os arquivos sobrevivam a qualquer redeploy:
+
+```yaml
+volumes:
+  - uploads:/app/public/upload
+```
+
+> Após o primeiro deploy com o volume configurado, os avatares são permanentes. Fotos enviadas antes da configuração do volume precisam ser reenviadas uma vez.
+
+---
+
 ## Arquitetura em produção — dois ambientes, um banco
 
 ```
