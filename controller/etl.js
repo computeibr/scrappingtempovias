@@ -6,6 +6,7 @@ const nodemailer = require('nodemailer');
 const { Op } = require('sequelize');
 const TempoVias = require('../models/tempovias');
 const sequelize = require('../models/db');
+const { verificarVariacao } = require('../utils/alertaVariacao');
 
 // Chave arbitrária única para o advisory lock do PostgreSQL (identifica este processo ETL)
 const ETL_LOCK_KEY = 737465;
@@ -244,6 +245,11 @@ async function getTempoVias(page, url, name, viaId) {
         leitura: new Date(),
         viaId,
       });
+
+      // Verifica variação vs. histórico e dispara WhatsApp se acima do limiar
+      // Não bloqueia o ciclo ETL — falhas são silenciosas
+      verificarVariacao(viaId, name, minTime.toString()).catch(() => {});
+
       return;
     } catch (error) {
       if (attempt < 2) {
