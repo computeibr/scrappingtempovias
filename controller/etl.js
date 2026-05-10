@@ -248,7 +248,7 @@ async function getTempoVias(page, url, name, viaId) {
 
       // Verifica variação vs. histórico e dispara WhatsApp se acima do limiar
       // Não bloqueia o ciclo ETL — falhas são silenciosas
-      verificarVariacao(viaId, name, minTime.toString()).catch(() => {});
+      verificarVariacao(viaId, name, minTime.toString(), url).catch(() => {});
 
       return;
     } catch (error) {

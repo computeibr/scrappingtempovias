@@ -24,7 +24,7 @@ function extrairMinutos(tempo) {
   return total > 0 ? total : null;
 }
 
-async function verificarVariacao(viaId, nomeDaRota, tempo) {
+async function verificarVariacao(viaId, nomeDaRota, tempo, urlRota) {
   // Só executa se WhatsApp estiver configurado
   if (!process.env.ALERTA_WHATSAPP_PARA) return;
 
@@ -87,6 +87,7 @@ async function verificarVariacao(viaId, nomeDaRota, tempo) {
     `*Tempo atual:* ${tempo}`,
     `*Variação:* +${variacao.toFixed(1)}% acima da média histórica`,
     `*Referência (${diaNome} · ${horaTexto} · 3 sem.):* ${media.toFixed(0)} min`,
+    ...(urlRota ? [``, `🗺️ ${urlRota}`] : []),
     ``,
     `_${agora.toFormat('dd/MM/yyyy HH:mm')} · America/Sao_Paulo_`,
   ].join('\n');
