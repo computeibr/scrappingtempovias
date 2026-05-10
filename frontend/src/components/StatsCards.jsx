@@ -76,39 +76,59 @@ export default function StatsCards({ resumo, rotaSelecionada, historico }) {
           {/* Card de referência — hora atual vs. 3 semanas, mesmo dia da semana */}
           {mediaRef !== null && mediaHoraAtual !== null && (
             <div className="col-span-2 lg:col-span-4">
-              <div className="card flex items-center gap-6 flex-wrap">
-                <div className="flex items-start gap-3 flex-1 min-w-40">
-                  <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: '#00C0F315' }}>
-                    <span className="text-xl">🕐</span>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-navy-900">{mediaHoraAtual.toFixed(0)} min</p>
-                    <p className="text-sm font-medium text-gray-600">Média atual ({String(horaAtual).padStart(2,'0')}h)</p>
-                    <p className="text-xs text-gray-400 mt-0.5">ref. histórica: {mediaRef.toFixed(0)} min · {diaNome}s · 3 sem.</p>
-                  </div>
+              <div className="card overflow-hidden p-0">
+
+                {/* Header — rota completa */}
+                <div className="px-4 py-2.5 border-b border-gray-100 flex items-center gap-2 flex-wrap" style={{ background: '#F8FAFC' }}>
+                  <span className="text-xs font-semibold uppercase tracking-wider flex-shrink-0" style={{ color: '#004A80' }}>
+                    Análise {String(horaAtual).padStart(2,'0')}h
+                  </span>
+                  <span className="text-gray-300 flex-shrink-0">·</span>
+                  {rotaSelecionada?.url ? (
+                    <a
+                      href={rotaSelecionada.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm font-semibold hover:underline"
+                      style={{ color: '#13335A' }}
+                    >
+                      {rotaSelecionada.name}
+                    </a>
+                  ) : (
+                    <span className="text-sm font-semibold text-gray-700">{rotaSelecionada?.name}</span>
+                  )}
                 </div>
-                <div className="flex items-start gap-3 flex-1 min-w-40">
-                  <div
-                    className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-                    style={{ background: variacao > 5 ? '#E51B2315' : variacao < -5 ? '#34973B15' : '#F9C60015' }}
-                  >
-                    <span className="text-xl">
-                      {variacao > 5 ? '🔴' : variacao < -5 ? '🟢' : '🟡'}
-                    </span>
+
+                {/* Main — métricas lado a lado */}
+                <div className="grid grid-cols-2 divide-x divide-gray-100">
+                  <div className="px-5 py-4">
+                    <p className="text-xs text-gray-400 mb-1">Média agora</p>
+                    <p className="text-3xl font-bold leading-none" style={{ color: '#004A80' }}>
+                      {mediaHoraAtual.toFixed(0)} min
+                    </p>
                   </div>
-                  <div>
+                  <div className="px-5 py-4">
+                    <p className="text-xs text-gray-400 mb-1">Variação vs. referência</p>
                     <p
-                      className="text-2xl font-bold"
+                      className="text-3xl font-bold leading-none"
                       style={{ color: variacao > 5 ? '#E51B23' : variacao < -5 ? '#34973B' : '#92400E' }}
                     >
                       {variacao > 0 ? '+' : ''}{variacao}%
                     </p>
-                    <p className="text-sm font-medium text-gray-600">Variação vs. referência</p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {variacao > 5 ? 'Acima do esperado para este horário' : variacao < -5 ? 'Melhor que o esperado para este horário' : 'Dentro do padrão histórico'}
+                    <p className="text-xs mt-1.5" style={{ color: variacao > 5 ? '#E51B23' : variacao < -5 ? '#34973B' : '#92400E' }}>
+                      {variacao > 5 ? 'Acima do esperado' : variacao < -5 ? 'Melhor que o esperado' : 'Dentro do padrão'}
                     </p>
                   </div>
                 </div>
+
+                {/* Footer — contexto histórico */}
+                <div className="px-4 py-2 border-t border-gray-100 flex items-center gap-2 text-xs text-gray-400" style={{ background: '#F8FAFC' }}>
+                  <span>📊</span>
+                  <span>Referência histórica: <strong className="text-gray-600">{mediaRef.toFixed(0)} min</strong></span>
+                  <span>·</span>
+                  <span>{diaNome}s úteis · últimas 3 semanas</span>
+                </div>
+
               </div>
             </div>
           )}

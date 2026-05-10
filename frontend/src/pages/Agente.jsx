@@ -218,6 +218,36 @@ export default function Agente() {
             <Item label="Banco — sync()">Todos os <code className="bg-gray-100 px-1 rounded">.sync()</code> do Sequelize estão comentados. Schema criado pelo <code className="bg-gray-100 px-1 rounded">init.sql</code>. Novas colunas devem ser executadas manualmente em produção via <code className="bg-gray-100 px-1 rounded">ALTER TABLE ... ADD COLUMN IF NOT EXISTS</code>.</Item>
           </Secao>
 
+          {/* Dashboard e Mapa */}
+          <Secao titulo="Dashboard e Mapa — Análise de Rotas">
+            <Item label="Dashboard (/)">
+              Sem mapa (eliminado para reduzir custo Google Maps API). Exibe lista de rotas, gráfico de variação por hora e cards de KPI.
+            </Item>
+            <Item label="Linha de referência">
+              Gráfico <code className="bg-gray-100 px-1 rounded">TimeChart</code> mostra linha azul (média do período) + linha celeste tracejada (média das últimas 3 semanas, mesmo dia da semana de hoje, excluindo feriados). Tooltip mostra % de variação entre as duas.
+            </Item>
+            <Item label="Card hora atual">
+              Ao selecionar uma rota, aparece card com: média da hora atual, referência histórica e % de variação — base para alertas aos gestores. Estrutura: header (nome completo da rota) / main (métricas em 3 colunas) / footer (contexto histórico).
+            </Item>
+            <Item label="Mapa (/mapa)">
+              Página separada com o mapa Google Maps completo. Clicar em qualquer rota abre modal com o <code className="bg-gray-100 px-1 rounded">TimeChart</code> daquela rota. Visível a todos os usuários autenticados.
+            </Item>
+          </Secao>
+
+          {/* Monitor */}
+          <Secao titulo="Monitor — Filtros e Visualização">
+            <Item label="Auto-refresh">A cada 120 segundos com countdown regressivo visível.</Item>
+            <Item label="Filtro de status">
+              Botões: <strong>Todos</strong> · <strong>🔴 Acima</strong> · <strong>🟡 Normal</strong> · <strong>🟢 Abaixo</strong>.
+              Ao selecionar "Acima", aparecem limiares de variação: <strong>&gt;5%</strong> · <strong>&gt;25%</strong> · <strong>&gt;50%</strong> · <strong>&gt;75%</strong>.
+            </Item>
+            <Item label="Filtros client-side">Todos os filtros são React state — sem chamada à API. Os dados ficam em memória e são filtrados/reordenados instantaneamente.</Item>
+            <Item label="Grid tela inteira">Sem <code className="bg-gray-100 px-1 rounded">max-w-7xl</code> — cards ocupam toda a largura disponível. Grid: 1 col mobile / 2 sm / 3 lg / 4 xl.</Item>
+            <Item label="RouteCard">
+              Estrutura header (nome completo sem truncamento, <code className="bg-gray-100 px-1 rounded">break-words</code>) / main (tempo atual + % variação) / footer (horário + "N leit. · Sábs · 3 sem.").
+            </Item>
+          </Secao>
+
           {/* ETL */}
           <Secao titulo="ETL — Scraping e Coleta de Dados">
             <Item label="Cron">A cada 5 min (<code className="bg-gray-100 px-1 rounded">*/5 * * * *</code>, timezone America/Sao_Paulo). Executa também imediatamente ao iniciar.</Item>
@@ -302,6 +332,20 @@ export default function Agente() {
                 </div>
               ))}
             </div>
+          </Secao>
+
+          {/* Saúde do sistema */}
+          <Secao titulo="Saúde do Sistema — Observabilidade">
+            <Item label="Origem do ETL">Badge na página <strong>/saude</strong> mostra 🟢 "Máquina local" ou 🔴 "VPS (failover)" — atualizado a cada 30s via <code className="bg-gray-100 px-1 rounded">/api/health/detalhes</code>.</Item>
+            <Item label="Dois ciclos de polling">
+              <code className="bg-gray-100 px-1 rounded">/api/health/live</code> a cada 1s (sem banco — CPU/RAM instantâneos).{' '}
+              <code className="bg-gray-100 px-1 rounded">/api/health/detalhes</code> a cada 30s (com banco — ETL config, heartbeat, uptime).
+            </Item>
+            <Item label="Alertas por e-mail">
+              (1) ETL: após 3 falhas consecutivas → "Scraping com falha".{' '}
+              (2) Failover: local cai → "Local ausente, VPS assumiu" / local volta → "Local voltou".{' '}
+              (3) CPU: VPS acima do threshold → alerta com cooldown de 30min.
+            </Item>
           </Secao>
 
           {/* Rodapé */}

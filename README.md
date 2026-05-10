@@ -388,11 +388,14 @@ Após ter o primeiro Admin no banco, os demais usuários são criados via interf
 
 | Rota | Acesso | Descrição |
 |------|--------|-----------|
-| `/` | Autenticado | Dashboard principal — mapa + gráfico + histórico por rota |
-| `/monitor` | Autenticado | Monitor em tempo real — cards de todas as rotas com variação, auto-refresh 2 min |
+| `/` | Autenticado | Dashboard — lista de rotas + gráfico de variação por hora + referência histórica (sem mapa) |
+| `/mapa` | Autenticado | Mapa Google Maps — todas as rotas; clicar abre modal com gráfico da rota |
+| `/monitor` | Autenticado | Monitor em tempo real — cards com variação vs. histórico, filtros de status e limiar %, auto-refresh 2 min |
 | `/feriados` | Autenticado | Dias não úteis — listagem pública, cadastro/remoção somente admin |
 | `/metodologia` | Autenticado | Documentação técnica — metodologia de coleta, cálculos e perguntas frequentes |
-| `/admin` | Admin (perfilId=99) | Gerenciar rotas — cadastro, edição e remoção com preview no mapa |
+| `/admin` | perfilId ≥ 2 | Gerenciar rotas — cadastro, edição e remoção com preview no mapa |
+| `/agente` | Admin (99) | Base de conhecimento do produto — stack, arquitetura, ETL, variáveis |
+| `/saude` | Admin (99) | CPU/RAM ao vivo, status ETL, origem do ETL (local ou VPS failover) |
 | `/login` | Público | Autenticação JWT |
 
 ---

@@ -12,6 +12,8 @@ export default function Monitor() {
   const [countdown, setCountdown] = useState(INTERVALO);
   const [ordem, setOrdem] = useState('variacao'); // 'variacao' | 'alfabetica'
   const [filtroCategoria, setFiltroCategoria] = useState('');
+  const [filtroStatus, setFiltroStatus] = useState('');       // '' | 'acima' | 'normal' | 'abaixo'
+  const [limiarVariacao, setLimiarVariacao] = useState(null); // null | 5 | 20
   const countRef = useRef(INTERVALO);
 
   async function fetchDados() {
@@ -51,6 +53,8 @@ export default function Monitor() {
   const rotasOrdenadas = dados?.rotas
     ? [...dados.rotas]
         .filter(r => !filtroCategoria || (r.categoria || '') === filtroCategoria)
+        .filter(r => !filtroStatus || r.status === filtroStatus)
+        .filter(r => limiarVariacao === null || (r.variacao !== null && r.variacao > limiarVariacao))
         .sort((a, b) => {
           if (ordem === 'alfabetica') return a.nome.localeCompare(b.nome, 'pt-BR');
           const va = a.variacao ?? -Infinity;
@@ -69,7 +73,7 @@ export default function Monitor() {
 
   return (
     <AppShell>
-      <div className="flex-1 overflow-y-auto p-4 max-w-7xl mx-auto w-full">
+      <div className="flex-1 overflow-y-auto p-4 w-full">
 
         {/* Barra superior */}
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -106,14 +110,56 @@ export default function Monitor() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Filtro de ordenação */}
+
+            {/* Filtro por status */}
+            <div className="flex rounded-lg overflow-hidden border border-gray-300 text-xs">
+              {[
+                { value: '',       label: 'Todos'  },
+                { value: 'acima',  label: '🔴 Acima' },
+                { value: 'normal', label: '🟡 Normal' },
+                { value: 'abaixo', label: '🟢 Abaixo' },
+              ].map(({ value, label }, idx) => (
+                <button
+                  key={value}
+                  onClick={() => { setFiltroStatus(value); setLimiarVariacao(null); }}
+                  className={`px-3 py-1.5 transition-colors ${idx > 0 ? 'border-l border-gray-300' : ''} ${
+                    filtroStatus === value ? 'bg-[#004A80] text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Limiar de variação — só aparece quando filtro "Acima" está ativo */}
+            {filtroStatus === 'acima' && (
+              <div className="flex rounded-lg overflow-hidden border border-red-300 text-xs">
+                {[
+                  { value: null, label: 'Todos' },
+                  { value: 5,   label: '> 5%'  },
+                  { value: 25,  label: '> 25%' },
+                  { value: 50,  label: '> 50%' },
+                  { value: 75,  label: '> 75%' },
+                ].map(({ value, label }, idx) => (
+                  <button
+                    key={String(value)}
+                    onClick={() => setLimiarVariacao(value)}
+                    className={`px-3 py-1.5 transition-colors ${idx > 0 ? 'border-l border-red-300' : ''} ${
+                      limiarVariacao === value ? 'bg-red-600 text-white' : 'bg-red-50 text-red-600 hover:bg-red-100'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Ordenação */}
             <div className="flex rounded-lg overflow-hidden border border-gray-300 text-xs">
               <button
                 onClick={() => setOrdem('variacao')}
                 className={`px-3 py-1.5 transition-colors ${
-                  ordem === 'variacao'
-                    ? 'bg-[#004A80] text-white'
-                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                  ordem === 'variacao' ? 'bg-[#004A80] text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
                 }`}
               >
                 Maior variação
@@ -121,16 +167,14 @@ export default function Monitor() {
               <button
                 onClick={() => setOrdem('alfabetica')}
                 className={`px-3 py-1.5 border-l border-gray-300 transition-colors ${
-                  ordem === 'alfabetica'
-                    ? 'bg-[#004A80] text-white'
-                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                  ordem === 'alfabetica' ? 'bg-[#004A80] text-white' : 'bg-white text-gray-600 hover:bg-gray-50'
                 }`}
               >
                 A → Z
               </button>
             </div>
 
-            {/* Atualizar manualmente */}
+            {/* Atualizar */}
             <button
               onClick={fetchDados}
               className="text-xs px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-600 hover:border-[#004A80] hover:text-[#004A80] transition-colors"
@@ -140,7 +184,7 @@ export default function Monitor() {
 
             {/* Countdown */}
             <div className="text-xs text-gray-400 bg-white border border-gray-200 rounded-lg px-3 py-1.5 tabular-nums">
-              Próxima atualização: {String(Math.floor(countdown / 60)).padStart(2, '0')}:{String(countdown % 60).padStart(2, '0')}
+              {String(Math.floor(countdown / 60)).padStart(2, '0')}:{String(countdown % 60).padStart(2, '0')}
             </div>
 
           </div>

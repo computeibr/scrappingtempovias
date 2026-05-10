@@ -49,18 +49,19 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 └── frontend/           ← React + Vite (porta 3000 no dev)
     ├── src/
     │   ├── pages/Login.jsx
-    │   ├── pages/Dashboard.jsx      ← chips de categoria na sidebar; filtra rotas visíveis ao user
+    │   ├── pages/Dashboard.jsx      ← sem mapa (custo API); linha ref. histórica no gráfico; card hora atual vs. ref.
+    │   ├── pages/Mapa.jsx           ← mapa Google Maps + modal com gráfico ao clicar (todos os usuários)
     │   ├── pages/Admin.jsx         ← CRUD de rotas + categoria + filtro + compartilhamento inline
     │   ├── pages/Ajustes.jsx       ← Admin only: assume autoria de rotas órfãs (creatorId IS NULL)
-    │   ├── pages/Saude.jsx         ← Admin only: status, ETL, e-mail+teste, CPU/RAM ao vivo (1s) + config (30s)
+    │   ├── pages/Saude.jsx         ← Admin only: status, ETL, e-mail+teste, CPU/RAM ao vivo (1s); badge origem ETL
     │   ├── pages/Usuarios.jsx      ← CRUD de usuários (só Admin 99)
-    │   ├── pages/Monitor/          ← chips de categoria na barra superior; filtra rotas visíveis
+    │   ├── pages/Monitor/          ← filtros: status + limiar variação (>5/25/50/75%); grid tela inteira; RouteCard header/main/footer
     │   ├── pages/Feriados/
     │   ├── pages/Metodologia/      ← acordeão "Rotas, Permissões e Compartilhamento" adicionado
     │   ├── components/AppShell.jsx ← shell principal: sidebar com nav por perfil + header mobile
     │   ├── components/RouteMap.jsx ← Google Maps + DirectionsService
-    │   ├── components/TimeChart.jsx
-    │   ├── components/StatsCards.jsx
+    │   ├── components/TimeChart.jsx ← linha azul (média período) + linha celeste tracejada (ref. 3 sem. mesmo dia)
+    │   ├── components/StatsCards.jsx ← card hora atual vs. referência histórica com variação %
     │   ├── components/FilterPanel.jsx
     │   ├── contexts/AuthContext.jsx ← JWT no localStorage (tv_token, tv_user)
     │   ├── services/api.js          ← axios com interceptors JWT
@@ -259,6 +260,12 @@ Cores extraídas do `identidadevisual2022.pdf` (Manual de Marca Prefeitura Rio):
 - Uptime: `formatarUptime` mostra segundos para uptimes < 1 min (ex: `45s`, `1min 30s`)
 - **Failover ETL local → VPS**: tabela `etl_heartbeat` (id=1) gravada após cada ciclo bem-sucedido. VPS com `ETL_FAILOVER=true` faz apenas um SELECT leve antes de cada ciclo — zero Puppeteer se primária ativa; assume com `ETL_CONCURRENCY=4` se primária ausente > `ETL_FAILOVER_MINUTOS` (padrão 10min). Advisory lock ainda protege race conditions. Logs identificam a fonte: `[local]` ou `[vps]`.
 - **Página Agente** (`/agente`, somente Admin): base de conhecimento do produto visível na interface. **Atualizar `frontend/src/pages/Agente.jsx` sempre que o CLAUDE.md for atualizado com novas decisões de produto, arquitetura ou stack.**
+- **Mapa separado do Dashboard** (`/mapa`, todos os usuários): mapa Google Maps em página dedicada para evitar custo de API no carregamento do Dashboard. Clicar numa rota abre modal com `TimeChart`. Dashboard mantém apenas lista + gráficos.
+- **Referência histórica no gráfico** (`TimeChart`): linha celeste tracejada mostra média das últimas 3 semanas, mesmo dia da semana de hoje, excluindo feriados. Parâmetro `diaSemanaRef` enviado pelo Dashboard. Tooltip mostra % de variação entre média do período e referência.
+- **Card de hora atual vs. referência** (`StatsCards`): quando rota selecionada, exibe card com média da hora atual, média de referência histórica e % de variação — base para alertas aos gestores.
+- **Monitor — filtros de status e variação**: botões "Todos/🔴 Acima/🟡 Normal/🟢 Abaixo" + limiar de variação (>5/25/50/75%) que aparece ao selecionar "Acima". Filtros são client-side (React state, sem nova chamada à API). Grid sem `max-w-7xl` — ocupa tela inteira.
+- **RouteCard redesenhado**: estrutura header (nome completo com `break-words`, sem `truncate`) / main (tempo + variação) / footer (horário + contexto histórico "N leit. · Sábs · 3 sem.").
+- **Saude — badge origem ETL**: `health.js /detalhes` inclui `etl.heartbeat` (source, lastRun, minutosAtras). `Saude.jsx` exibe badge 🟢 "Máquina local" ou 🔴 "VPS (failover)" atualizado a cada 30s.
 
 ## Docker
 O `Dockerfile` usa **multi-stage build**:
