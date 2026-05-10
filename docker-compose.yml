@@ -1,6 +1,8 @@
 services:
 
-  # ── Aplicação Node.js + Frontend (web only — sem scraping) ───────────────────
+  # ── Aplicação Node.js + Frontend (VPS/EasyPanel — sem scraping) ──────────────
+  # O ETL roda na máquina local via PM2 (ETL_ENABLED=true no .env local).
+  # No EasyPanel, configure ETL_ENABLED=false nas variáveis de ambiente da service.
   app:
     build:
       context: .
@@ -18,4 +20,5 @@ services:
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT}
       DB_SSL: ${DB_SSL:-false}
-      ETL_ENABLED: ${ETL_ENABLED:-true}
+      ETL_ENABLED: ${ETL_ENABLED:-false}
+      ETL_FAILOVER: ${ETL_FAILOVER:-false}

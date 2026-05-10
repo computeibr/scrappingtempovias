@@ -9,6 +9,7 @@ import Metodologia from './pages/Metodologia';
 import Usuarios from './pages/Usuarios';
 import Ajustes from './pages/Ajustes';
 import Saude from './pages/Saude';
+import Agente from './pages/Agente';
 
 function PrivateRoute({ children }) {
   const { token } = useAuth();
@@ -74,6 +75,14 @@ export default function App() {
             element={
               <PrivateRoute>
                 <Saude />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/agente"
+            element={
+              <PrivateRoute>
+                <Agente />
               </PrivateRoute>
             }
           />

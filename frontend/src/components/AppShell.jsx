@@ -49,6 +49,11 @@ const Icons = {
       <path d="M12 21.593c-5.63-5.539-11-10.297-11-14.402C1 3.9 4.068 2 6.5 2 8.352 2 10.22 2.985 12 5c1.78-2.015 3.648-3 5.5-3C19.932 2 23 3.9 23 7.191c0 4.105-5.37 8.863-11 14.402z"/>
     </svg>
   ),
+  agent: (
+    <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
+      <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7H3a7 7 0 0 1 7-7h1V5.73A2 2 0 0 1 10 4a2 2 0 0 1 2-2M5 14v2a7 7 0 0 0 14 0v-2H5m3 2h2v2H8v-2m6 0h2v2h-2v-2z"/>
+    </svg>
+  ),
   menu: (
     <svg viewBox="0 0 24 24" className="w-5 h-5 fill-current">
       <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z" />
@@ -84,6 +89,7 @@ const ADMIN_ONLY_ITEMS = [
   { to: '/usuarios', label: 'Gerenciar Usuários', icon: Icons.users   },
   { to: '/ajustes',  label: 'Ajustes',            icon: Icons.settings },
   { to: '/saude',    label: 'Saúde do Sistema',   icon: Icons.health  },
+  { to: '/agente',   label: 'Agente',             icon: Icons.agent   },
 ];
 
 function NavItem({ item, active, onClick }) {

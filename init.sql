@@ -88,6 +88,17 @@ CREATE TABLE IF NOT EXISTS users (
 ALTER TABLE tv_tempo_via ADD COLUMN IF NOT EXISTS "creatorId" INTEGER REFERENCES users(id) ON DELETE SET NULL;
 ALTER TABLE tv_tempo_via ADD COLUMN IF NOT EXISTS categoria VARCHAR(100);
 
+-- Heartbeat do ETL — uma única linha; atualizada após cada ciclo bem-sucedido.
+-- Usada pelo mecanismo de failover: VPS só assume se last_run estiver ausente ou
+-- desatualizado (> ETL_FAILOVER_MINUTOS min sem leitura da máquina primária).
+CREATE TABLE IF NOT EXISTS etl_heartbeat (
+    id        INTEGER PRIMARY KEY DEFAULT 1,
+    last_run  TIMESTAMPTZ,
+    source    VARCHAR(20)   -- 'local' ou 'vps'
+);
+INSERT INTO etl_heartbeat (id, last_run, source) VALUES (1, NULL, NULL)
+  ON CONFLICT (id) DO NOTHING;
+
 -- Compartilhamento de rotas (view-only por e-mail)
 CREATE TABLE IF NOT EXISTS route_shares (
     id          SERIAL PRIMARY KEY,

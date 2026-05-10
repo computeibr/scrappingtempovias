@@ -2,6 +2,34 @@
 
 Plataforma full-stack para monitoramento automático do tempo de viagem em rotas urbanas. O backend coleta dados do Google Maps a cada 5 minutos via Puppeteer; o frontend (React) exibe dashboards interativos com mapa de rotas, gráficos de variação por hora e filtros históricos.
 
+**Stack:** Node.js + Express + Sequelize + Puppeteer · React 18 + Vite + Tailwind · PostgreSQL · Docker + EasyPanel
+
+---
+
+## Quick Start — desenvolvimento local
+
+```bash
+# Pré-requisitos: Node.js ≥ 18, PostgreSQL acessível, Google Maps API Key
+
+# 1. Clone e instale dependências
+git clone <repo>
+npm install
+cd frontend && npm install && cd ..
+
+# 2. Configure as variáveis de ambiente
+cp .env.example .env              # edite com suas credenciais
+cp frontend/.env.example frontend/.env   # adicione VITE_GOOGLE_MAPS_KEY
+
+# 3. Inicialize o banco (execute uma vez no PostgreSQL)
+psql -h <DB_HOST> -U <DB_USER> -d <DB> -f init.sql
+
+# 4. Suba os dois processos (terminais separados)
+npm run dev          # backend → http://localhost:3001
+cd frontend && npm run dev   # frontend → http://localhost:3000
+```
+
+Acesse `http://localhost:3000`. O primeiro usuário Admin deve ser criado [via SQL](#criar-primeiro-usuário-admin) (o endpoint `/criar-usuario` exige autenticação de Admin).
+
 ---
 
 ## Como funciona
@@ -28,41 +56,54 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 ## Estrutura do projeto
 
 ```
-├── app.js                      # Servidor Express — API + serve do frontend
-├── Dockerfile                  # Multi-stage: build frontend + Node prod com Chromium
-├── docker-compose.yml          # Serviços: postgres:15-alpine + app
-├── init.sql                    # Schema inicial do PostgreSQL (criado automaticamente)
-├── .env.example                # Modelo das variáveis de ambiente
+├── app.js                      # Entry point: Express + carga condicional do ETL
+├── Dockerfile                  # Multi-stage: build frontend Vite + Node prod com Chromium
+├── docker-compose.yml          # Serviço único: app (postgres gerenciado pelo EasyPanel)
+├── init.sql                    # Schema completo do PostgreSQL — safe para re-execução
+├── .env.example                # Modelo das variáveis de ambiente (backend)
 ├── controller/
-│   ├── etl.js                  # Scraping + cron job (a cada 5 min, roda ao iniciar também)
-│   ├── rotasvia.js             # Rota legada usada pelo scraper
-│   ├── auth.js                 # Login JWT + criação de usuário
-│   └── dashboard.js            # API do dashboard (resumo, histórico, snapshot, últimas)
+│   ├── etl.js                  # Worker pool Puppeteer + cron 5 min + advisory lock PG
+│   ├── auth.js                 # Login JWT + CRUD de usuários (somente Admin)
+│   ├── dashboard.js            # API do dashboard filtrada por visibilidade do usuário
+│   ├── monitor.js              # GET /api/monitor — variação vs. média histórica por rota
+│   ├── rotasvia.js             # CRUD de rotas + autoria + compartilhamento + órfãs
+│   ├── health.js               # /api/health: status público + /detalhes + /live (soAdmin)
+│   └── feriados.js             # CRUD de dias não úteis
 ├── models/
-│   ├── db.js                   # Conexão Sequelize — PostgreSQL (suporte a SSL via env)
-│   ├── User.js                 # Model de usuários
-│   ├── rotasvia.js             # Model tv_tempo_via
-│   └── tempovias.js            # Model tempovias
+│   ├── db.js                   # Sequelize dialect postgres (suporte a DB_SSL)
+│   ├── User.js                 # Tabela users
+│   ├── rotasvia.js             # Tabela tv_tempo_via
+│   ├── routeShare.js           # Tabela route_shares (compartilhamento view-only)
+│   └── tempovias.js            # Tabela tempovias (histórico de leituras)
 ├── middlewares/
-│   ├── auth.js                 # Verificação JWT (eAdmin)
-│   └── acl.js                  # Controle de perfil
+│   ├── auth.js                 # eAdmin (qualquer logado) + soAdmin (perfilId=99)
+│   └── acl.js                  # Helper de lista de perfilIds (menos usado)
+├── utils/
+│   ├── rotasVisiveis.js        # Lógica centralizada de visibilidade de rotas por usuário
+│   └── monitorSistema.js       # Alerta por e-mail quando CPU da VPS > threshold (60s)
 └── frontend/                   # React + Vite (interface web)
     ├── src/
     │   ├── pages/
-    │   │   ├── Login.jsx       # Tela de login
-    │   │   └── Dashboard.jsx   # Dashboard principal
+    │   │   ├── Login.jsx           # Autenticação JWT
+    │   │   ├── Dashboard.jsx       # Mapa + gráfico + filtros históricos
+    │   │   ├── Admin.jsx           # CRUD de rotas (perfilId ≥ 2)
+    │   │   ├── Ajustes.jsx         # Reivindicar rotas órfãs (somente Admin 99)
+    │   │   ├── Saude.jsx           # CPU/RAM ao vivo + status ETL (somente Admin 99)
+    │   │   ├── Usuarios.jsx        # CRUD de usuários (somente Admin 99)
+    │   │   ├── Monitor/            # Cards por rota com variação vs. histórico
+    │   │   ├── Feriados/           # Dias não úteis (listagem + CRUD admin)
+    │   │   └── Metodologia/        # Documentação técnica em acordeão
     │   ├── components/
-    │   │   ├── Navbar.jsx
-    │   │   ├── Sidebar.jsx     # Lista de rotas + seleção
-    │   │   ├── RouteMap.jsx    # Mapa Google Maps com DirectionsService
-    │   │   ├── TimeChart.jsx   # Gráfico Recharts (variação por hora, banda min-max)
-    │   │   ├── StatsCards.jsx  # Cards de resumo
-    │   │   └── FilterPanel.jsx # Filtros de data e dia da semana
+    │   │   ├── AppShell.jsx        # Shell principal: sidebar + header mobile
+    │   │   ├── RouteMap.jsx        # Google Maps + DirectionsService
+    │   │   ├── TimeChart.jsx       # Gráfico Recharts (variação por hora, banda min-max)
+    │   │   ├── StatsCards.jsx      # Cards de resumo
+    │   │   └── FilterPanel.jsx     # Filtros de data e dia da semana
     │   ├── contexts/
-    │   │   └── AuthContext.jsx # Gerenciamento de sessão JWT
-    │   ├── services/api.js     # Axios com interceptors
-    │   └── utils/mapUtils.js   # Parser de URLs do Google Maps
-    └── dist/                   # Build servido pelo Express em produção
+    │   │   └── AuthContext.jsx     # JWT no localStorage (tv_token, tv_user)
+    │   ├── services/api.js         # Axios com interceptors JWT
+    │   └── utils/mapUtils.js       # Parser de URLs do Google Maps
+    └── dist/                       # Build Vite servido pelo Express em produção
 ```
 
 ---
@@ -72,14 +113,16 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 O banco utilizado é **PostgreSQL** (migrado do SQL Server). O schema é criado automaticamente pelo `init.sql` na primeira vez que o container sobe.
 
 ### Tabela `tv_tempo_via` — Rotas cadastradas
-| Campo      | Tipo         | Descrição                            |
-|------------|--------------|--------------------------------------|
-| id         | SERIAL PK    | Identificador da rota                |
-| name       | VARCHAR(100) | Nome amigável da rota                |
-| url        | TEXT         | URL do Google Maps com os waypoints  |
-| geometry   | TEXT         | Traçado da rota (geométrico)         |
-| createdAt  | TIMESTAMPTZ  | Data de criação                      |
-| updatedAt  | TIMESTAMPTZ  | Data de atualização                  |
+| Campo      | Tipo         | Descrição                                            |
+|------------|--------------|------------------------------------------------------|
+| id         | SERIAL PK    | Identificador da rota                                |
+| name       | VARCHAR(100) | Nome amigável da rota                                |
+| url        | TEXT         | URL do Google Maps com os waypoints                  |
+| geometry   | TEXT         | Traçado da rota (geométrico)                         |
+| categoria  | VARCHAR(100) | Agrupamento livre da rota (ex: "Corredor Oeste")     |
+| creatorId  | INTEGER FK   | Usuário que criou a rota (FK → users.id, pode ser NULL para rotas legadas) |
+| createdAt  | TIMESTAMPTZ  | Data de criação                                      |
+| updatedAt  | TIMESTAMPTZ  | Data de atualização                                  |
 
 ### Tabela `tempovias` — Histórico de tempos
 | Campo      | Tipo         | Descrição                                      |
@@ -88,20 +131,30 @@ O banco utilizado é **PostgreSQL** (migrado do SQL Server). O schema é criado 
 | viaId      | INTEGER FK   | Referência à rota (`tv_tempo_via.id`)          |
 | nomedarota | VARCHAR(255) | Nome da rota (desnormalizado)                  |
 | tempo      | VARCHAR(255) | Tempo extraído do Google Maps (ex: "23 min")   |
-| km         | VARCHAR(255) | Distância extraída (ex: "12,4 km")             |
+| km         | VARCHAR(255) | Distância extraída (ex: "12,4 km" ou "250 m")  |
 | leitura    | TIMESTAMPTZ  | Timestamp da leitura                           |
 | urlfoto    | VARCHAR(255) | URL de foto da rota (opcional)                 |
 | createdAt  | TIMESTAMPTZ  | Data de criação                                |
 | updatedAt  | TIMESTAMPTZ  | Data de atualização                            |
 
 ### Tabela `users` — Usuários do sistema
-| Campo    | Tipo         | Descrição                           |
-|----------|--------------|-------------------------------------|
-| id       | SERIAL PK    | Identificador do usuário            |
-| name     | VARCHAR(100) | Nome completo                       |
-| email    | VARCHAR(150) | E-mail único                        |
-| password | VARCHAR(255) | Senha hasheada com bcrypt           |
-| perfilId | INTEGER      | Perfil: 1=usuário, 99=admin         |
+| Campo    | Tipo         | Descrição                                      |
+|----------|--------------|------------------------------------------------|
+| id       | SERIAL PK    | Identificador do usuário                       |
+| name     | VARCHAR(100) | Nome completo                                  |
+| email    | VARCHAR(150) | E-mail único                                   |
+| password | VARCHAR(255) | Senha hasheada com bcrypt                      |
+| perfilId | INTEGER      | Perfil: **1=View** (só leitura), **2=User** (gerencia suas rotas), **99=Admin** (acesso total) |
+
+### Tabela `route_shares` — Compartilhamento de rotas
+| Campo    | Tipo         | Descrição                                      |
+|----------|--------------|------------------------------------------------|
+| id       | SERIAL PK    | Identificador                                  |
+| routeId  | INTEGER FK   | Rota compartilhada (FK → tv_tempo_via.id)      |
+| email    | VARCHAR(150) | E-mail do usuário com acesso view-only         |
+| createdAt | TIMESTAMPTZ | Data do compartilhamento                       |
+
+> UNIQUE em (routeId, email). Compartilhamento é somente leitura — o e-mail recebe acesso ao dashboard, mas não pode editar ou remover a rota.
 
 ---
 
@@ -115,17 +168,36 @@ O banco utilizado é **PostgreSQL** (migrado do SQL Server). O schema é criado 
 
 ### Variáveis de ambiente — Backend (`.env` na raiz)
 
+Copie `.env.example` para `.env` e preencha:
+
 ```env
 PORT=3001
-SECRET=uma_string_secreta_para_jwt
+SECRET=<string aleatória forte — ex: openssl rand -hex 32>
 
-DB=nome_do_banco
-DB_USER=usuario
-DB_PASS=senha
-DB_HOST=host_do_servidor
+# PostgreSQL
+DB=tempovias
+DB_USER=tempovias_user
+DB_PASS=<senha>
+DB_HOST=localhost        # em Docker: nome do serviço (ex: postgres)
 DB_PORT=5432
-DB_SSL=false
+DB_SSL=false             # true para bancos externos com SSL (Supabase, Neon, etc.)
+
+# ETL / Scraping — só importa se ETL_ENABLED=true
+ETL_ENABLED=true         # false desativa o scraping completamente
+ETL_CONCURRENCY=8        # abas Puppeteer paralelas (produção usa 20 com 8 cores/32 GB)
+ETL_FAST_MODE=true       # true = domcontentloaded+3s (padrão); false = networkidle2
+ETL_TAB_DELAY=500        # delay em ms entre abertura de cada aba
+ETL_BROWSER_RECYCLE=12   # ciclos antes de reciclar o Chromium (≈1h com cron de 5min)
+
+# Alertas por e-mail (opcional — deixar vazio para desativar)
+ALERT_EMAIL=seu@gmail.com
+ALERT_EMAIL_PASS=<app password de 16 caracteres>
+ALERT_EMAIL_TO=destinatario@email.com
+ALERTA_CPU_PORCENTO=80   # alerta quando CPU da VPS ultrapassar este %
 ```
+
+> Requer **App Password** do Gmail (não a senha normal) quando 2FA está ativo.
+> Gere em: Conta Google → Segurança → Senhas de apps.
 
 ### Variáveis de ambiente — Frontend (`frontend/.env`)
 
@@ -142,20 +214,22 @@ VITE_GOOGLE_MAPS_KEY=sua_chave_google_maps
 
 O sistema tem **dois modos** de execução, com comportamentos distintos:
 
-### Modo desenvolvimento
+### Modo desenvolvimento (local)
 - **Backend** (Express) roda na porta `3001`
 - **Frontend** (Vite dev server) roda na porta `3000`, com proxy automático para a API em `3001`
 - Hot reload ativo — alterações refletem imediatamente sem precisar buildar
 - Acesse o sistema em `http://localhost:3000`
 
-### Modo produção local (PM2)
-- O frontend é **compilado** (`npm run build`) gerando `frontend/dist/`
-- O Express passa a servir os arquivos estáticos do `dist/` **na mesma porta 3001**
-- Frontend + API rodam no **mesmo processo**, na mesma porta
-- Gerenciado pelo PM2 — sobrevive a reboots e quedas de energia
-- Acesse o sistema em `http://localhost:3001`
+### Modo produção local (PM2 + ETL)
+- O Express serve o build do Vite (`frontend/dist/`) na porta `3001`
+- PM2 gerencia o processo — `pm2 start ecosystem.config.js`
+- `ETL_ENABLED=true` no `.env` local ativa o Puppeteer
+- Acesse em `http://localhost:3001`
 
-> Este é o mesmo comportamento do Docker — Express unificando tudo em uma porta só.
+### Modo produção VPS (Docker + EasyPanel)
+- O Dockerfile compila o frontend (Stage 1) e sobe o Express (Stage 2)
+- `ETL_ENABLED=false` configurado no EasyPanel — sem scraping na VPS
+- Frontend + API na porta `3001`, servidos pelo container
 
 ---
 
@@ -176,27 +250,25 @@ npm run dev
 
 Acesse `http://localhost:3000`
 
-### Produção local com PM2 (máquina do cliente)
+> O banco de dados deve estar acessível com as credenciais do `.env`. Todos os `.sync()` do Sequelize estão **comentados** — o schema é criado pelo `init.sql`. Execute o `init.sql` manualmente uma vez no banco antes de subir.
+
+### Produção local com PM2 (máquina que roda o ETL)
 
 ```bash
-# 1. Instalar dependências (primeira vez)
+# Primeira vez — instalar dependências e buildar o frontend
 npm install
-cd frontend && npm install && cd ..
+cd frontend && npm install && npm run build && cd ..
 
-# 2. Buildar o frontend
+# Iniciar com PM2
+pm2 start ecosystem.config.js
+pm2 save                        # persiste na inicialização do sistema
+
+# Atualizar após mudanças no código
 cd frontend && npm run build && cd ..
-
-# 3. Iniciar com PM2
-pm2 start ecosystem.config.js --update-env
-pm2 save
+pm2 restart my-app
 ```
 
-Ou use o script pronto em `scripts/iniciar.bat` (faz os passos 2 e 3 automaticamente).
-
-Acesse `http://localhost:3001`
-
-> **Atenção:** Sempre que alterar arquivos do frontend, rode `npm run build` dentro de `frontend/`
-> e reinicie o PM2 com `pm2 restart my-app` para as mudanças entrarem em vigor.
+> Para reiniciar automaticamente após reboot no Windows: `pm2-windows-startup install`
 
 ### Produção via Docker (EasyPanel / VPS)
 
@@ -226,27 +298,50 @@ VITE_GOOGLE_MAPS_KEY=<chave Google Maps API>
 
 ### Criar primeiro usuário (admin)
 
+O endpoint `/api/auth/criar-usuario` **exige autenticação de Admin** (perfilId=99). Para o bootstrap inicial (sem nenhum admin ainda), insira o usuário diretamente no banco:
+
 ```bash
-# Via curl — rode enquanto o backend está no ar
-curl -X POST http://localhost:3001/api/auth/criar-usuario \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Admin","email":"admin@cetrio.rio","password":"suasenha","perfilId":99}'
+# 1. Gere o hash bcrypt da senha desejada
+node -e "const b=require('bcryptjs'); b.hash('SuaSenhaForte123',10).then(h=>console.log(h))"
+# Copie o hash gerado (começa com $2b$10$...)
+
+# 2. Insira o usuário diretamente no PostgreSQL
+psql -h <DB_HOST> -U <DB_USER> -d <DB> -c \
+  "INSERT INTO users (name, email, password, \"perfilId\") VALUES ('Admin', 'seu@email.com', '<HASH>', 99);"
 ```
+
+Após ter o primeiro Admin no banco, os demais usuários são criados via interface (`/usuarios`) ou pelo endpoint com JWT de Admin.
 
 ---
 
 ## Endpoints da API
 
-| Método | Rota                              | Auth | Descrição                                      |
-|--------|-----------------------------------|------|------------------------------------------------|
-| POST   | `/api/auth/login`                 | —    | Autenticação, retorna JWT                      |
-| POST   | `/api/auth/criar-usuario`         | —    | Cria novo usuário                              |
-| GET    | `/api/dashboard/resumo`           | JWT  | Contadores gerais                              |
-| GET    | `/api/dashboard/rotas`            | JWT  | Lista todas as rotas                           |
-| GET    | `/api/dashboard/historico/:id`    | JWT  | Médias por hora + evolução diária com filtros  |
-| GET    | `/api/dashboard/snapshot`         | JWT  | Última leitura de cada rota (para popup mapa)  |
-| GET    | `/api/dashboard/ultimas/:id`      | JWT  | Últimas leituras com paginação                 |
-| GET    | `/rota/rotasvia`                  | —    | Legado — usado pelo scraper interno            |
+| Método | Rota                                        | Auth    | Descrição                                              |
+|--------|---------------------------------------------|---------|--------------------------------------------------------|
+| POST   | `/api/auth/login`                           | —       | Autenticação, retorna JWT                              |
+| POST   | `/api/auth/criar-usuario`                   | Admin   | Cria novo usuário (perfilId: 1, 2 ou 99)               |
+| GET    | `/api/auth/usuarios`                        | Admin   | Lista todos os usuários                                |
+| PUT    | `/api/auth/usuarios/:id`                    | Admin   | Edita usuário (nome, e-mail, perfil, senha)            |
+| DELETE | `/api/auth/usuarios/:id`                    | Admin   | Remove usuário (não pode auto-remover)                 |
+| GET    | `/api/dashboard/resumo`                     | JWT     | Contadores filtrados por visibilidade do usuário       |
+| GET    | `/api/dashboard/rotas`                      | JWT     | Rotas visíveis ao usuário                              |
+| GET    | `/api/dashboard/historico/:id`              | JWT     | Médias por hora + evolução diária com filtros          |
+| GET    | `/api/dashboard/snapshot`                   | JWT     | Última leitura das rotas visíveis (mapa)               |
+| GET    | `/api/dashboard/ultimas/:id`                | JWT     | Últimas leituras com paginação                         |
+| GET    | `/api/monitor`                              | JWT     | Rotas com variação vs. média histórica + categoria     |
+| GET    | `/api/health`                               | —       | Status público: ok, última leitura, ETL ativo          |
+| GET    | `/api/health/live`                          | Admin   | CPU/RAM ao vivo sem banco (polled a cada 1s)           |
+| GET    | `/api/health/detalhes`                      | Admin   | ETL config, memória, uptime, email                     |
+| POST   | `/api/health/test-email`                    | Admin   | Dispara e-mail de teste imediatamente                  |
+| GET    | `/api/rotas/rotasvia/minhas`                | JWT     | Rotas visíveis ao usuário (suas + legadas + compartilhadas) |
+| GET    | `/api/rotas/rotasvia/orfas`                 | Admin   | Rotas sem creatorId                                    |
+| POST   | `/api/rotas/rotasvia`                       | JWT     | Cria rota (vincula creatorId automaticamente)          |
+| PUT    | `/api/rotas/rotasvia/:id`                   | JWT     | Edita rota (criador ou Admin)                          |
+| DELETE | `/api/rotas/rotasvia/:id`                   | JWT     | Remove rota (criador ou Admin)                         |
+| POST   | `/api/rotas/rotasvia/:id/compartilhar`      | JWT     | Adiciona e-mail ao compartilhamento (criador ou Admin) |
+| DELETE | `/api/rotas/rotasvia/:id/compartilhar/:email` | JWT   | Remove e-mail do compartilhamento                      |
+| POST   | `/api/rotas/rotasvia/orfas/assumir`         | Admin   | Atribui creatorId a rotas órfãs (array de IDs ou vazio=todas) |
+| GET    | `/rota/rotasvia`                            | —       | Legado — usado pelo scraper interno (sem auth)         |
 
 **Parâmetros de `/historico/:id`:**
 - `dataInicio` / `dataFim` — `YYYY-MM-DD` (padrão: últimos 30 dias)
@@ -299,22 +394,30 @@ curl -X POST http://localhost:3001/api/auth/criar-usuario \
 
 ---
 
-## Arquitetura de dois ambientes (cliente)
-
-O sistema opera em dois ambientes simultâneos com o **mesmo banco PostgreSQL** na VPS:
+## Arquitetura em produção — dois ambientes, um banco
 
 ```
-[Máquina local do cliente]          [VPS — EasyPanel]
-  Node.js + PM2                       Docker container
-  Express + ETL (scraping)            Express (sem ETL)
-  Puppeteer → Google Maps             Frontend estático
+[Máquina local — Node.js + PM2]     [VPS — Docker + EasyPanel]
   ETL_ENABLED=true                    ETL_ENABLED=false
+  Puppeteer coleta Google Maps         Express API + Frontend
+  node-cron a cada 5 min               Sem Puppeteer/Chromium
+  ecosystem.config.js                  docker-compose.yml
         ↓                                     ↓
         └──────── PostgreSQL (VPS) ───────────┘
+                  (banco único, compartilhado)
 ```
 
-- **Local:** coleta dados a cada 5 min, salva no banco da VPS. PM2 + `pm2-windows-startup` reinicia automaticamente após quedas de energia.
-- **VPS:** consome os dados e exibe o sistema. Sem Puppeteer/Chromium — VPS não tem recursos para scraping.
+- **Local (PM2):** coleta dados, salva no banco da VPS via PostgreSQL remoto. PM2 + `pm2-windows-startup` reinicia após quedas de energia.
+- **VPS (Docker):** apenas serve a API e o frontend. `ETL_ENABLED=false` configurado no EasyPanel — nunca roda Puppeteer.
+- A cada `git push` para `main`, o EasyPanel faz redeploy automático do container da VPS.
+
+### ETL — arquitetura resumida
+
+- **Worker pool dinâmico**: até `ETL_CONCURRENCY` abas Puppeteer simultâneas com fila compartilhada
+- **Browser persistente**: Chromium reutilizado entre ciclos; reciclado após `ETL_BROWSER_RECYCLE` ciclos
+- **Advisory lock PostgreSQL** (`pg_try_advisory_lock`): lock no nível do banco — impede dois processos (mesmo em máquinas diferentes) de escrever ao mesmo tempo
+- **Dedup de 3 min**: segunda barreira — descarta leitura se já existe registro do mesmo `viaId` nos últimos 3 min
+- **Request interception**: bloqueia imagens, fontes e CSS — Maps só precisa de JS/XHR para calcular tempo/km
 
 ---
 
@@ -414,16 +517,25 @@ Na aba **Environment** da service, adicione:
 ```
 PORT=3001
 SECRET=<string aleatória forte — ex: openssl rand -hex 32>
-DB=<nome do banco>
-DB_USER=<usuário do banco>
+DB=tempovias
+DB_USER=tempovias_user
 DB_PASS=<senha do banco>
-DB_HOST=<host do PostgreSQL>
-DB_PORT=<porta do PostgreSQL>
+DB_HOST=<host do PostgreSQL — geralmente o nome do serviço postgres no EasyPanel>
+DB_PORT=5432
 DB_SSL=false
+ETL_ENABLED=true
+ETL_CONCURRENCY=20
+ETL_FAST_MODE=true
+ETL_TAB_DELAY=500
+ETL_BROWSER_RECYCLE=12
 VITE_GOOGLE_MAPS_KEY=<sua chave Google Maps API>
+ALERT_EMAIL=<gmail para alertas — opcional>
+ALERT_EMAIL_PASS=<app password Gmail — opcional>
+ALERT_EMAIL_TO=<destinatário — opcional>
+ALERTA_CPU_PORCENTO=80
 ```
 
-> `ETL_ENABLED` **não precisa ser definido** — o Dockerfile já define `ETL_ENABLED=false` por padrão via `docker-compose.yml`. O scraping nunca roda na VPS.
+> O `docker-compose.yml` tem `ETL_ENABLED: ${ETL_ENABLED:-true}` — **o default é `true`**. Defina explicitamente `ETL_ENABLED=false` se não quiser scraping nesse container.
 
 ---
 
@@ -449,40 +561,38 @@ Na aba **Domains** da service:
 
 ### Passo 6 — Criar o primeiro usuário admin
 
-Com a aplicação no ar, rode o comando abaixo (substitua os dados):
+O endpoint `/api/auth/criar-usuario` exige JWT de Admin. Para o bootstrap inicial, acesse o banco diretamente pelo console do EasyPanel ou via `psql`:
 
 ```bash
-curl -X POST https://seu-dominio.com/api/auth/criar-usuario \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Admin","email":"seu@email.com","password":"suasenha","perfilId":99}'
+# Gere o hash da senha (Node deve estar disponível)
+node -e "const b=require('bcryptjs'); b.hash('SuaSenhaForte123',10).then(h=>console.log(h))"
+
+# Insira o admin diretamente no PostgreSQL
+psql -h <DB_HOST> -U <DB_USER> -d <DB> -c \
+  "INSERT INTO users (name, email, password, \"perfilId\") VALUES ('Admin', 'seu@email.com', '<HASH>', 99);"
 ```
 
-Ou via PowerShell local:
-
-```powershell
-Invoke-RestMethod -Method POST -Uri "https://seu-dominio.com/api/auth/criar-usuario" `
-  -ContentType "application/json" `
-  -Body '{"name":"Admin","email":"seu@email.com","password":"suasenha","perfilId":99}'
-```
+Após ter o primeiro Admin, os demais usuários são criados pela interface (`/usuarios`).
 
 ---
 
 ### Atualizações futuras
 
-A cada novo `git push` para `main`, o EasyPanel detecta automaticamente e faz o redeploy. Basta fazer push do repositório — não é necessário acessar o servidor.
+A cada novo `git push` para `main`, o EasyPanel detecta automaticamente e faz o redeploy — não é necessário acessar o servidor.
 
 ---
 
-### Resumo da arquitetura em produção
+## Migrações de banco de dados
 
-```
-[Máquina local do cliente]          [VPS — EasyPanel]
-  Node.js + PM2                       Docker container
-  Express + ETL (scraping)            Express (sem ETL)
-  Puppeteer → Google Maps             Frontend estático servido pelo Express
-        ↓                                     ↓
-        └──────────── PostgreSQL (VPS) ───────┘
-                    (banco único, compartilhado)
+O Sequelize está com todos os `.sync()` **comentados** — o schema é criado exclusivamente pelo `init.sql`. Para adicionar novas colunas ou tabelas:
+
+1. Adicione `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` ao `init.sql` (seguro para re-execução)
+2. Execute o comando manualmente em produção — o `init.sql` só roda automaticamente no **primeiro boot** do container PostgreSQL (quando o volume está vazio)
+3. Atualize o model Sequelize correspondente
+
+```sql
+-- Exemplo de migração manual em produção:
+ALTER TABLE tv_tempo_via ADD COLUMN IF NOT EXISTS nova_coluna VARCHAR(100);
 ```
 
 ---

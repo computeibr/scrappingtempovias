@@ -75,6 +75,7 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 | `route_shares` | Compartilhamentos: id, routeId (FK→tv_tempo_via), email, createdAt, updatedAt; UNIQUE(routeId,email) |
 | `tempovias` | Histórico: id, viaId (FK), nomedarota, tempo, km, leitura (timestamp), urlfoto, createdAt, updatedAt |
 | `users` | Usuários: id, name, email, password (bcrypt), perfilId (1=View, 2=User, 99=Admin), createdAt, updatedAt |
+| `etl_heartbeat` | Failover ETL: id=1 (única linha), last_run (TIMESTAMPTZ), source ('local' ou 'vps') |
 
 > Todos os `.sync()` estão **comentados** — o Sequelize não cria/altera tabelas automaticamente.
 > O schema é criado pelo `init.sql`. Novas colunas usam `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` — seguro rodar em banco já existente.
@@ -174,6 +175,20 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 
 2. **Dedup de 3 minutos**: antes de cada `TempoVias.create()`, verifica se já existe leitura para o mesmo `viaId` nos últimos 3 min. Barreira secundária para containers com crons ligeiramente defasados.
 
+### Mecanismo de failover (máquina local → VPS)
+**Problema:** a máquina local pode cair (queda de energia, reinicialização) e parar de coletar dados.
+
+**Solução — heartbeat + failover condicional:**
+- Tabela `etl_heartbeat` no banco (uma linha, id=1): guarda `last_run` (timestamp) e `source` ('local' ou 'vps')
+- Após cada ciclo bem-sucedido, **qualquer máquina** atualiza o heartbeat via `atualizarHeartbeat()`
+- A VPS tem `ETL_FAILOVER=true` no EasyPanel: antes de cada ciclo, faz um `SELECT` leve nesta tabela
+  - Se `last_run < agora - ETL_FAILOVER_MINUTOS` → primária ausente → VPS assume o ETL
+  - Se `last_run` é recente → primária ativa → VPS ignora o ciclo (zero Puppeteer, zero CPU)
+- Advisory lock ainda protege contra execução simultânea em qualquer cenário de race condition
+- Gap máximo antes da VPS assumir: `ETL_FAILOVER_MINUTOS` (padrão 10 min = 2 ciclos perdidos)
+- VPS usa `ETL_CONCURRENCY=4` em modo backup para não sobrecarregar
+- Log identifica quem rodou: `Ciclo concluído em Xs. [local]` ou `[vps]`
+
 ### Seletores XPath de distância
 O campo `km` armazena tanto distâncias em km (`"7,4 km"`) quanto em metros (`"250 m"`) — rotas curtas como Av. Delfim Moreira, Av. Vieira Souto, Av. Atlântica exibem metros no Maps. O `waitForXPath` e o `$x` aceitam ambos os formatos:
 ```
@@ -193,10 +208,12 @@ DB_HOST=host
 DB_PORT=5432
 DB_SSL=false
 ETL_ENABLED=true           # false desativa o scraping completamente
-ETL_CONCURRENCY=20         # abas paralelas — produção usa 20 (8 cores/32GB)
+ETL_CONCURRENCY=20         # abas paralelas — local usa 8, VPS backup usa 4
 ETL_TAB_DELAY=500          # delay em ms entre abertura de cada aba (reduzido de 2000; request interception torna abas leves)
 ETL_FAST_MODE=true         # true = domcontentloaded+3s (padrão produção); false = networkidle2
 ETL_BROWSER_RECYCLE=12     # ciclos antes de reciclar o browser (default 12 ≈ 1h)
+ETL_FAILOVER=false         # false = primária (local, sempre roda); true = backup (VPS, só roda se primária ausente)
+ETL_FAILOVER_MINUTOS=10    # minutos sem heartbeat para VPS assumir (default 10 = 2 ciclos perdidos)
 ALERT_EMAIL=               # Gmail remetente para alertas de falha
 ALERT_EMAIL_PASS=          # App password do Gmail
 ALERT_EMAIL_TO=            # Destinatário do alerta (padrão: mesmo que ALERT_EMAIL)
@@ -240,6 +257,8 @@ Cores extraídas do `identidadevisual2022.pdf` (Manual de Marca Prefeitura Rio):
 - `utils/monitorSistema.js` monitora `os.loadavg()[0] / nucleos` a cada 60s. Usa média de 1 minuto do Linux (não instantâneo) — pico de 25s do ETL não dispara alerta; precisa de ~60s de carga sustentada. Threshold padrão: 80% (configurável com `ALERTA_CPU_PORCENTO`). Cooldown de 30min entre alertas. Alerta só na transição normal→alto.
 - `process.cpuUsage()` delta entre chamadas expõe CPU% do processo Node.js no endpoint `/live`; cálculo: `(user+system) / elapsed / núcleos × 100`
 - Uptime: `formatarUptime` mostra segundos para uptimes < 1 min (ex: `45s`, `1min 30s`)
+- **Failover ETL local → VPS**: tabela `etl_heartbeat` (id=1) gravada após cada ciclo bem-sucedido. VPS com `ETL_FAILOVER=true` faz apenas um SELECT leve antes de cada ciclo — zero Puppeteer se primária ativa; assume com `ETL_CONCURRENCY=4` se primária ausente > `ETL_FAILOVER_MINUTOS` (padrão 10min). Advisory lock ainda protege race conditions. Logs identificam a fonte: `[local]` ou `[vps]`.
+- **Página Agente** (`/agente`, somente Admin): base de conhecimento do produto visível na interface. **Atualizar `frontend/src/pages/Agente.jsx` sempre que o CLAUDE.md for atualizado com novas decisões de produto, arquitetura ou stack.**
 
 ## Docker
 O `Dockerfile` usa **multi-stage build**:

@@ -26,6 +26,13 @@ const FAST_MODE = process.env.ETL_FAST_MODE === 'true';
 // Default: 12 ciclos ≈ 1h com rotas rápidas; ajuste conforme volume de rotas.
 const MAX_CICLOS_BROWSER = parseInt(process.env.ETL_BROWSER_RECYCLE || '12', 10);
 
+// Modo failover: true = esta máquina é backup (VPS).
+// Quando ativo, verifica o heartbeat antes de rodar — só assume se a primária estiver ausente.
+// false (padrão) = máquina primária (local), sempre roda e sempre atualiza o heartbeat.
+const ETL_FAILOVER = process.env.ETL_FAILOVER === 'true';
+const ETL_FAILOVER_MINUTOS = parseInt(process.env.ETL_FAILOVER_MINUTOS || '10', 10);
+const ETL_SOURCE = ETL_FAILOVER ? 'vps' : 'local';
+
 // Flags do Chrome que reduzem CPU/memória sem afetar extração de dados.
 const CHROME_ARGS = [
   '--no-sandbox',
@@ -49,9 +56,69 @@ const CHROME_ARGS = [
   '--safebrowsing-disable-auto-update',
 ];
 
+// ─── Heartbeat de failover ────────────────────────────────────────────────────
+// Registra no banco o timestamp do último ciclo ETL bem-sucedido e qual máquina rodou.
+// A VPS consulta este registro antes de cada ciclo — só assume se > ETL_FAILOVER_MINUTOS.
+async function atualizarHeartbeat() {
+  await sequelize.query(
+    `INSERT INTO etl_heartbeat (id, last_run, source) VALUES (1, NOW(), :source)
+     ON CONFLICT (id) DO UPDATE SET last_run = NOW(), source = :source`,
+    { replacements: { source: ETL_SOURCE } }
+  );
+}
+
+async function heartbeatRecente() {
+  const [[row]] = await sequelize.query(
+    'SELECT last_run FROM etl_heartbeat WHERE id = 1'
+  );
+  if (!row || !row.last_run) return false;
+  const diffMin = (Date.now() - new Date(row.last_run).getTime()) / 60000;
+  return diffMin < ETL_FAILOVER_MINUTOS;
+}
+
 // ─── Alertas ─────────────────────────────────────────────────────────────────
 let falhasConsecutivas = 0;
 let alertaJaEnviado = false;
+let failoverAtivo = false; // true enquanto VPS está rodando ETL no lugar da local
+
+async function enviarAlertaFailover(tipo) {
+  if (!process.env.ALERT_EMAIL || !process.env.ALERT_EMAIL_PASS) return;
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: process.env.ALERT_EMAIL, pass: process.env.ALERT_EMAIL_PASS },
+  });
+  const agora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  const ausente = tipo === 'ausente';
+  try {
+    await transporter.sendMail({
+      from: `"Tempovias Monitor" <${process.env.ALERT_EMAIL}>`,
+      to: process.env.ALERT_EMAIL_TO || process.env.ALERT_EMAIL,
+      subject: ausente
+        ? '⚠️ Tempovias — Máquina local ausente, VPS assumiu o ETL'
+        : '✅ Tempovias — Máquina local voltou, VPS em modo espera',
+      text: ausente
+        ? [
+            'A máquina local parou de enviar heartbeat.',
+            '',
+            `Data/hora: ${agora}`,
+            `Limite configurado: ${ETL_FAILOVER_MINUTOS} minutos sem leitura.`,
+            '',
+            'A VPS assumiu a coleta de dados automaticamente.',
+            'Verifique a máquina local e o PM2.',
+          ].join('\n')
+        : [
+            'A máquina local voltou a enviar heartbeat.',
+            '',
+            `Data/hora: ${agora}`,
+            '',
+            'A VPS voltou ao modo de espera — coleta retomada pela máquina local.',
+          ].join('\n'),
+    });
+    console.log(`Alerta de failover enviado: ${tipo}.`);
+  } catch (err) {
+    console.error('Falha ao enviar alerta de failover:', err.message);
+  }
+}
 
 async function enviarAlertaEmail(mensagem) {
   if (!process.env.ALERT_EMAIL || !process.env.ALERT_EMAIL_PASS) {
@@ -216,6 +283,29 @@ async function worker(browser, fila, id) {
 
 // ─── Ciclo principal ──────────────────────────────────────────────────────────
 async function agendamentoDefinido() {
+  // Modo failover (VPS): verifica se a máquina primária (local) está ativa.
+  // Esta consulta é leve — um único SELECT de uma linha, sem Puppeteer.
+  if (ETL_FAILOVER) {
+    const ativo = await heartbeatRecente().catch(() => false);
+    if (ativo) {
+      if (failoverAtivo) {
+        // Transição ausente → normal: local voltou
+        failoverAtivo = false;
+        enviarAlertaFailover('voltou').catch(() => {});
+        console.log('ETL failover: máquina primária voltou. VPS em modo espera.');
+      } else {
+        console.log('ETL failover: máquina primária ativa. Ciclo ignorado.');
+      }
+      return;
+    }
+    if (!failoverAtivo) {
+      // Transição normal → ausente: local caiu
+      failoverAtivo = true;
+      enviarAlertaFailover('ausente').catch(() => {});
+    }
+    console.log(`ETL failover: primária ausente há mais de ${ETL_FAILOVER_MINUTOS} min. Assumindo ciclo.`);
+  }
+
   const [[{ acquired }]] = await sequelize.query(
     `SELECT pg_try_advisory_lock(${ETL_LOCK_KEY}) AS acquired`
   );
@@ -247,7 +337,11 @@ async function agendamentoDefinido() {
     await Promise.all(promises);
 
     const segundos = ((Date.now() - inicio) / 1000).toFixed(1);
-    console.log(`Ciclo concluído em ${segundos}s (${data.rotasvias.length} rotas, ${abas} abas).`);
+    console.log(`Ciclo concluído em ${segundos}s (${data.rotasvias.length} rotas, ${abas} abas). [${ETL_SOURCE}]`);
+
+    await atualizarHeartbeat().catch(err =>
+      console.warn('ETL: falha ao atualizar heartbeat:', err.message)
+    );
 
     falhasConsecutivas = 0;
     alertaJaEnviado = false;
