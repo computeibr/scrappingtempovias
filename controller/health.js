@@ -3,6 +3,7 @@ const v8 = require('v8');
 const { Router } = require('express');
 const nodemailer = require('nodemailer');
 const TempoVias = require('../models/tempovias');
+const sequelize = require('../models/db');
 const { soAdmin } = require('../middlewares/auth');
 
 const router = Router();
@@ -113,6 +114,14 @@ router.get('/detalhes', soAdmin, async (req, res) => {
     const uptimeProcesso = process.uptime();
     const uptimeSistema = os.uptime();
 
+    const [[heartbeat]] = await sequelize.query(
+      'SELECT last_run, source FROM etl_heartbeat WHERE id = 1'
+    ).catch(() => [[null]]);
+
+    const minutosHeartbeat = heartbeat?.last_run
+      ? Math.floor((agora - new Date(heartbeat.last_run)) / 60000)
+      : null;
+
     return res.json({
       ok,
       etl: {
@@ -123,6 +132,11 @@ router.get('/detalhes', soAdmin, async (req, res) => {
         browserRecycle:         parseInt(process.env.ETL_BROWSER_RECYCLE || '12', 10),
         ultimaLeitura:          ultima?.leitura || null,
         minutosDesdeUltimaLeitura: minutosDesde,
+        heartbeat: {
+          source:        heartbeat?.source || null,
+          lastRun:       heartbeat?.last_run || null,
+          minutosAtras:  minutosHeartbeat,
+        },
       },
       email: {
         configurado:  !!(process.env.ALERT_EMAIL && process.env.ALERT_EMAIL_PASS),

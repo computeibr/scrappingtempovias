@@ -195,6 +195,19 @@ export default function Saude() {
                 <div className="space-y-0.5">
                   <Linha label="Status"
                     valor={<Badge ok={dados.etl.ativo} labelOk="Ativo" labelErro="Desativado" />} />
+                  <Linha
+                    label="Origem do ETL"
+                    valor={
+                      dados.etl.heartbeat?.source === 'local'
+                        ? <Badge ok={true}  labelOk="Máquina local" />
+                        : dados.etl.heartbeat?.source === 'vps'
+                        ? <Badge ok={false} labelErro="VPS (failover)" />
+                        : <span className="text-xs text-gray-400">—</span>
+                    }
+                    sub={dados.etl.heartbeat?.minutosAtras !== null && dados.etl.heartbeat?.minutosAtras !== undefined
+                      ? `heartbeat há ${dados.etl.heartbeat.minutosAtras} min`
+                      : undefined}
+                  />
                   <Linha label="Modo"
                     valor={dados.etl.fastMode ? 'Fast (domcontentloaded)' : 'Padrão (networkidle2)'} />
                   <Linha label="Concorrência"      valor={`${dados.etl.concurrency} abas`} />

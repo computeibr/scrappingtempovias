@@ -259,6 +259,9 @@ Acesse `http://localhost:3000`
 npm install
 cd frontend && npm install && npm run build && cd ..
 
+# Instalar PM2 globalmente (apenas na primeira vez)
+npm install -g pm2
+
 # Iniciar com PM2
 pm2 start ecosystem.config.js
 pm2 save                        # persiste na inicialização do sistema
