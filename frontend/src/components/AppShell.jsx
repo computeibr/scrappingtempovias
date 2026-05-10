@@ -185,7 +185,7 @@ export default function AppShell({ children }) {
           ${sidebarExpanded ? 'w-56' : 'md:w-14 w-56'}
         `}
       >
-        <div className="flex flex-col h-full pb-14 md:pb-0" style={{ background: '#13335A' }}>
+        <div className="flex flex-col h-full" style={{ background: '#13335A' }}>
 
           {/* Header da sidebar */}
           <div className={`h-14 flex items-center border-b border-white/10 flex-shrink-0 px-3 gap-2`}>
@@ -305,9 +305,9 @@ export default function AppShell({ children }) {
         </div>
       </div>
 
-      {/* ── Bottom tab bar (mobile only) — scroll horizontal se não couber ── */}
+      {/* ── Bottom tab bar (mobile only) — oculta quando sidebar está aberta ── */}
       <nav
-        className="fixed bottom-0 left-0 right-0 z-50 md:hidden flex overflow-x-auto"
+        className={`fixed bottom-0 left-0 right-0 z-50 md:hidden flex overflow-x-auto${navOpen ? ' hidden' : ''}`}
         style={{
           background: '#13335A',
           borderTop: '1px solid rgba(255,255,255,0.12)',
