@@ -11,6 +11,7 @@ import Ajustes from './pages/Ajustes';
 import Saude from './pages/Saude';
 import Agente from './pages/Agente';
 import Mapa from './pages/Mapa';
+import Perfil from './pages/Perfil';
 
 function PrivateRoute({ children }) {
   const { token } = useAuth();
@@ -92,6 +93,14 @@ export default function App() {
             element={
               <PrivateRoute>
                 <Mapa />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/perfil"
+            element={
+              <PrivateRoute>
+                <Perfil />
               </PrivateRoute>
             }
           />

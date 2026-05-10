@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
@@ -45,7 +45,8 @@ export default function Usuarios() {
   const [salvando, setSalvando] = useState(false);
 
   // Edição inline
-  const [editando, setEditando] = useState(null); // { id, name, email, perfilId, password }
+  const [editando, setEditando] = useState(null); // { id, name, email, perfilId, password, avatarUrl }
+  const avatarInputRef = useRef(null);
 
   useEffect(() => {
     if (user?.perfilId !== 99) {
@@ -125,6 +126,36 @@ export default function Usuarios() {
       carregarUsuarios();
     } catch (err) {
       flash(err.response?.data?.mensagem || 'Erro ao remover usuário.', true);
+    }
+  }
+
+  async function handleUploadAvatar(e) {
+    const file = e.target.files?.[0];
+    if (!file || !editando) return;
+    const form = new FormData();
+    form.append('avatar', file);
+    try {
+      const { data } = await api.post(`/api/auth/usuarios/${editando.id}/avatar`, form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setEditando(prev => ({ ...prev, avatarUrl: data.avatarUrl }));
+      flash('Foto atualizada com sucesso.');
+      carregarUsuarios();
+    } catch (err) {
+      flash(err.response?.data?.mensagem || 'Erro ao enviar foto.', true);
+    }
+    e.target.value = '';
+  }
+
+  async function handleRemoverAvatar(id) {
+    if (!confirm('Remover a foto de perfil deste usuário?')) return;
+    try {
+      await api.delete(`/api/auth/usuarios/${id}/avatar`);
+      flash('Foto removida.');
+      setEditando(prev => prev ? { ...prev, avatarUrl: null } : prev);
+      carregarUsuarios();
+    } catch (err) {
+      flash(err.response?.data?.mensagem || 'Erro ao remover foto.', true);
     }
   }
 
@@ -239,6 +270,50 @@ export default function Usuarios() {
                 <li key={u.id} className="py-4">
                   {editando?.id === u.id ? (
                     <form onSubmit={handleSalvarEdicao} className="flex flex-col gap-3">
+                      {/* Avatar preview + upload no form de edição */}
+                      <input
+                        ref={avatarInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="hidden"
+                        onChange={handleUploadAvatar}
+                      />
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => avatarInputRef.current?.click()}
+                          title="Clique para alterar a foto"
+                          className="w-12 h-12 rounded-full overflow-hidden bg-gray-100 flex-shrink-0 flex items-center justify-center border-2 border-dashed border-gray-300 hover:border-[#004A80] transition-colors"
+                        >
+                          {editando.avatarUrl ? (
+                            <img src={editando.avatarUrl} alt={editando.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <svg viewBox="0 0 24 24" className="w-7 h-7 fill-gray-400">
+                              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                            </svg>
+                          )}
+                        </button>
+                        <div>
+                          <button
+                            type="button"
+                            onClick={() => avatarInputRef.current?.click()}
+                            className="text-xs font-medium hover:underline block"
+                            style={{ color: '#004A80' }}
+                          >
+                            {editando.avatarUrl ? 'Alterar foto' : 'Adicionar foto'}
+                          </button>
+                          <p className="text-xs text-gray-400 mt-0.5">JPG, PNG ou WebP · máx. 2 MB</p>
+                          {editando.avatarUrl && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoverAvatar(editando.id)}
+                              className="text-xs text-red-500 hover:text-red-700 underline mt-0.5 block"
+                            >
+                              Remover foto
+                            </button>
+                          )}
+                        </div>
+                      </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="block text-xs font-medium text-gray-600 mb-1">Nome</label>
@@ -312,7 +387,18 @@ export default function Usuarios() {
                       </div>
                     </form>
                   ) : (
-                    <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      {/* Avatar */}
+                      <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-100 flex-shrink-0 flex items-center justify-center">
+                        {u.avatarUrl ? (
+                          <img src={u.avatarUrl} alt={u.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <svg viewBox="0 0 24 24" className="w-6 h-6 fill-gray-400">
+                            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                          </svg>
+                        )}
+                      </div>
+                      {/* Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-sm font-medium text-gray-800">{u.name}</span>
@@ -326,21 +412,28 @@ export default function Usuarios() {
                           Criado em {new Date(u.createdAt).toLocaleDateString('pt-BR')}
                         </p>
                       </div>
-                      <div className="flex gap-2 flex-shrink-0">
+                      {/* Ações */}
+                      <div className="flex gap-1.5 flex-shrink-0">
                         <button
-                          onClick={() => setEditando({ id: u.id, name: u.name, email: u.email, perfilId: u.perfilId, password: '' })}
-                          className="text-xs px-3 py-1 rounded-lg border"
+                          onClick={() => setEditando({ id: u.id, name: u.name, email: u.email, perfilId: u.perfilId, password: '', avatarUrl: u.avatarUrl })}
+                          title="Editar usuário"
+                          className="w-8 h-8 flex items-center justify-center rounded-lg border transition-colors hover:bg-blue-50"
                           style={{ borderColor: '#004A80', color: '#004A80' }}
                         >
-                          Editar
+                          <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
+                            <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                          </svg>
                         </button>
                         {u.id !== user?.id && (
                           <button
                             onClick={() => handleRemover(u.id, u.name)}
-                            className="text-xs px-3 py-1 rounded-lg border"
+                            title="Remover usuário"
+                            className="w-8 h-8 flex items-center justify-center rounded-lg border transition-colors hover:bg-red-50"
                             style={{ borderColor: '#E51B23', color: '#E51B23' }}
                           >
-                            Remover
+                            <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
+                              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                            </svg>
                           </button>
                         )}
                       </div>

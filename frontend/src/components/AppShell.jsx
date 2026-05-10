@@ -1,7 +1,6 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import api from '../services/api';
 
 // ─── Ícones inline ────────────────────────────────────────────────────────────
 const Icons = {
@@ -130,29 +129,12 @@ export default function AppShell({ children }) {
   const [sidebarExpanded, setSidebarExpanded] = useState(() =>
     localStorage.getItem('tv_sidebar') !== 'false'
   );
-  const { user, logout, updateUser } = useAuth();
+  const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
   const isAdmin = user?.perfilId === 99;
   const isUser  = user?.perfilId >= 2;
-  const fileRef = useRef(null);
-
-  async function handleAvatarChange(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const form = new FormData();
-    form.append('avatar', file);
-    try {
-      const { data } = await api.post('/api/auth/me/avatar', form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      updateUser({ avatarUrl: data.user.avatarUrl });
-    } catch {
-      // silencioso — não bloqueia a UI
-    }
-    e.target.value = '';
-  }
 
   const sidebarItems = [
     ...NAV_ITEMS,
@@ -246,15 +228,12 @@ export default function AppShell({ children }) {
             ))}
           </nav>
 
-          {/* Input de upload oculto */}
-          <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleAvatarChange} />
-
           {/* Bloco do usuário */}
           <div className={`border-t border-white/10 flex-shrink-0 py-3 ${sidebarExpanded ? 'px-4' : 'md:px-0 px-4'}`}>
             <div className={`flex items-center mb-2 gap-2 ${!sidebarExpanded ? 'md:justify-center' : ''}`}>
-              <button
-                onClick={() => fileRef.current?.click()}
-                title="Alterar foto de perfil"
+              <Link
+                to="/perfil"
+                title="Editar perfil"
                 className="w-8 h-8 rounded-full flex-shrink-0 overflow-hidden bg-white/20 hover:ring-2 hover:ring-[#00C0F3] transition-all"
               >
                 {user?.avatarUrl ? (
@@ -264,7 +243,7 @@ export default function AppShell({ children }) {
                     <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
                   </svg>
                 )}
-              </button>
+              </Link>
               <div className={`min-w-0 flex-1 transition-all duration-300 overflow-hidden ${!sidebarExpanded ? 'md:w-0 md:opacity-0' : 'opacity-100'}`}>
                 <p className="text-white text-xs font-medium truncate whitespace-nowrap">{user?.name}</p>
                 <p className="text-white/40 text-xs whitespace-nowrap">{isAdmin ? 'Administrador' : 'Usuário'}</p>
@@ -305,17 +284,19 @@ export default function AppShell({ children }) {
             </div>
             <span className="text-white font-bold text-sm">Tempovias</span>
           </div>
-          <button
-            onClick={() => fileRef.current?.click()}
-            title="Alterar foto de perfil"
+          <Link
+            to="/perfil"
+            title="Editar perfil"
             className="ml-auto w-7 h-7 rounded-full overflow-hidden bg-white/20 flex items-center justify-center hover:ring-2 hover:ring-[#00C0F3] transition-all"
           >
             {user?.avatarUrl ? (
               <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
             ) : (
-              <span className="text-white text-xs font-bold">{avatarInitial}</span>
+              <svg viewBox="0 0 24 24" className="w-4 h-4 fill-white/80">
+                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+              </svg>
             )}
-          </button>
+          </Link>
         </header>
 
         {/* Conteúdo das páginas — mb-14 no mobile reserva espaço para a tab bar */}

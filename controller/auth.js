@@ -83,6 +83,36 @@ router.post('/login', async (req, res) => {
   });
 });
 
+// PUT /api/auth/me — qualquer usuário logado edita seus próprios dados (sem alterar perfilId)
+router.put('/me', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ erro: true, mensagem: 'Não autenticado.' });
+  const [, token] = authHeader.split(' ');
+  let userId;
+  try {
+    const decoded = await promisify(jwt.verify)(token, process.env.SECRET);
+    userId = decoded.id;
+  } catch {
+    return res.status(401).json({ erro: true, mensagem: 'Sessão expirada.' });
+  }
+  const { name, email, password } = req.body;
+  const user = await User.findByPk(userId);
+  if (!user) return res.status(404).json({ erro: true, mensagem: 'Usuário não encontrado.' });
+  if (name) user.name = name.trim();
+  if (email && email !== user.email) {
+    const existe = await User.findOne({ where: { email } });
+    if (existe) return res.status(400).json({ erro: true, mensagem: 'E-mail já está em uso.' });
+    user.email = email.trim();
+  }
+  if (password) user.password = await bcrypt.hash(password, 10);
+  await user.save();
+  return res.json({
+    erro: false,
+    mensagem: 'Perfil atualizado com sucesso.',
+    user: { id: user.id, name: user.name, email: user.email, perfilId: user.perfilId, avatarUrl: user.avatarUrl || null },
+  });
+});
+
 // POST /api/auth/me/avatar — qualquer usuário logado
 router.post('/me/avatar', async (req, res, next) => {
   // Extrai userId do token antes do multer (req.userId precisa estar disponível no filename)
@@ -140,7 +170,7 @@ router.post('/criar-usuario', soAdmin, async (req, res) => {
 // GET /api/auth/usuarios — lista todos (Admin)
 router.get('/usuarios', soAdmin, async (req, res) => {
   const usuarios = await User.findAll({
-    attributes: ['id', 'name', 'email', 'perfilId', 'createdAt'],
+    attributes: ['id', 'name', 'email', 'perfilId', 'avatarUrl', 'createdAt'],
     order: [['createdAt', 'ASC']],
   });
   return res.json(usuarios.map(u => ({
@@ -149,8 +179,34 @@ router.get('/usuarios', soAdmin, async (req, res) => {
     email: u.email,
     perfilId: u.perfilId,
     perfil: perfilNome(u.perfilId),
+    avatarUrl: u.avatarUrl || null,
     createdAt: u.createdAt,
   })));
+});
+
+// POST /api/auth/usuarios/:id/avatar — Admin faz upload de foto para qualquer usuário
+router.post('/usuarios/:id/avatar', soAdmin, (req, res, next) => {
+  // Reutiliza o storage de avatar, mas com o id do usuário alvo
+  req.userId = req.params.id; // sobrescreve para o filename usar o id correto
+  next();
+}, avatarUpload.single('avatar'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ erro: true, mensagem: 'Arquivo inválido. Use JPG, PNG ou WebP até 2 MB.' });
+  }
+  const user = await User.findByPk(req.params.id);
+  if (!user) return res.status(404).json({ erro: true, mensagem: 'Usuário não encontrado.' });
+
+  const avatarUrl = `/files/avatars/${req.file.filename}`;
+  await user.update({ avatarUrl });
+  return res.json({ erro: false, avatarUrl });
+});
+
+// DELETE /api/auth/usuarios/:id/avatar — remove foto de perfil (Admin)
+router.delete('/usuarios/:id/avatar', soAdmin, async (req, res) => {
+  const user = await User.findByPk(req.params.id);
+  if (!user) return res.status(404).json({ erro: true, mensagem: 'Usuário não encontrado.' });
+  await user.update({ avatarUrl: null });
+  return res.json({ erro: false, mensagem: 'Foto de perfil removida.' });
 });
 
 // PUT /api/auth/usuarios/:id — edita nome, email, perfil e/ou senha (Admin)
