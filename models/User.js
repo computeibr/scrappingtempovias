@@ -7,7 +7,8 @@ const User = db.define('users', {
   name: { type: Sequelize.STRING(100), allowNull: false },
   email: { type: Sequelize.STRING(150), allowNull: false, unique: true },
   password: { type: Sequelize.STRING, allowNull: false },
-  perfilId: { type: Sequelize.INTEGER, defaultValue: 1 },
+  perfilId:  { type: Sequelize.INTEGER,       defaultValue: 1 },
+  avatarUrl: { type: Sequelize.STRING(500),   allowNull: true },
 }, { freezeTableName: true });
 
 // User.sync();

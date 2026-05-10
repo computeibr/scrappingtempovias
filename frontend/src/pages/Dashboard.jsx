@@ -190,19 +190,111 @@ export default function Dashboard() {
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto bg-[#F0F0F0]">
             {!rotaAtiva ? (
-              <div className="h-full flex items-center justify-center">
-                <div className="text-center text-gray-400 py-8">
-                  <div className="text-4xl mb-3">&#8592;</div>
-                  <p className="font-semibold text-gray-500 text-sm">
-                    Selecione uma rota na lista para ver análises
-                  </p>
-                  <p className="text-xs mt-1 text-gray-400">
-                    {rotas.length} rota(s) exibida(s) no mapa
-                  </p>
+              <>
+                {/* ── Mobile: lista de rotas (master view) ── */}
+                <div className="md:hidden flex flex-col h-full bg-[#13335A]">
+                  <div className="px-3 py-2.5 border-b border-white/10 flex-shrink-0">
+                    <p className="text-white font-semibold text-xs uppercase tracking-widest mb-2">
+                      Rotas ({rotasFiltradas.length}{rotasFiltradas.length !== rotas.length ? `/${rotas.length}` : ''})
+                    </p>
+                    <input
+                      type="text"
+                      placeholder="Buscar rota..."
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="w-full bg-white/10 text-white placeholder-white/40 text-xs rounded px-2 py-1.5 outline-none focus:bg-white/20"
+                    />
+                    {categorias.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        <button
+                          onClick={() => setFiltroCategoria('')}
+                          className="text-xs px-2 py-0.5 rounded-full border transition-colors"
+                          style={filtroCategoria === ''
+                            ? { background: '#00C0F3', borderColor: '#00C0F3', color: '#fff' }
+                            : { borderColor: 'rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.5)' }}
+                        >
+                          Todas
+                        </button>
+                        {categorias.map(cat => (
+                          <button
+                            key={cat}
+                            onClick={() => setFiltroCategoria(filtroCategoria === cat ? '' : cat)}
+                            className="text-xs px-2 py-0.5 rounded-full border transition-colors"
+                            style={filtroCategoria === cat
+                              ? { background: '#00C0F3', borderColor: '#00C0F3', color: '#fff' }
+                              : { borderColor: 'rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.5)' }}
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 overflow-y-auto py-1">
+                    {loadingRotas && (
+                      <div className="flex items-center justify-center h-16">
+                        <div className="w-4 h-4 border-2 border-sky/50 border-t-sky rounded-full animate-spin" />
+                      </div>
+                    )}
+                    {!loadingRotas && rotasFiltradas.length === 0 && (
+                      <p className="text-white/40 text-xs text-center px-3 py-4">
+                        {search ? 'Nenhum resultado.' : 'Nenhuma rota cadastrada.'}
+                      </p>
+                    )}
+                    {!loadingRotas && rotasFiltradas.map((rota) => {
+                      const idx = rotas.findIndex((r) => r.id === rota.id);
+                      const color = routeColor(idx);
+                      return (
+                        <button
+                          key={rota.id}
+                          onClick={() => selectRota(rota)}
+                          className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/5 border-b border-white/5"
+                        >
+                          <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-sm font-medium truncate">{rota.name}</p>
+                            {rota.categoria && (
+                              <p className="text-white/40 text-xs mt-0.5">{rota.categoria}</p>
+                            )}
+                          </div>
+                          <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current text-white/30 flex-shrink-0">
+                            <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/>
+                          </svg>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="px-3 py-2 border-t border-white/10 flex-shrink-0">
+                    <p className="text-white/30 text-xs text-center">Coleta automática · 5 min</p>
+                  </div>
                 </div>
-              </div>
+
+                {/* ── Desktop: mensagem "selecione uma rota" ── */}
+                <div className="hidden md:flex h-full items-center justify-center">
+                  <div className="text-center text-gray-400 py-8">
+                    <div className="text-4xl mb-3">&#8592;</div>
+                    <p className="font-semibold text-gray-500 text-sm">
+                      Selecione uma rota na lista para ver análises
+                    </p>
+                    <p className="text-xs mt-1 text-gray-400">
+                      {rotas.length} rota(s) exibida(s)
+                    </p>
+                  </div>
+                </div>
+              </>
             ) : (
               <div className="p-3 space-y-3">
+                {/* Botão voltar — mobile only */}
+                <button
+                  onClick={() => setRotaAtiva(null)}
+                  className="md:hidden flex items-center gap-1.5 text-sm text-[#004A80] font-medium -mt-1 -ml-1 px-1 py-1 rounded hover:bg-gray-200"
+                >
+                  <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
+                    <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+                  </svg>
+                  Rotas
+                </button>
+
                 {/* Cabeçalho da rota ativa */}
                 <div className="flex items-center gap-2 flex-wrap">
                   <div

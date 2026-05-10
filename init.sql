@@ -84,6 +84,9 @@ CREATE TABLE IF NOT EXISTS users (
     "updatedAt" TIMESTAMPTZ   DEFAULT NOW()
 );
 
+-- Foto de perfil do usuário
+ALTER TABLE users ADD COLUMN IF NOT EXISTS "avatarUrl" VARCHAR(500);
+
 -- Autoria e categorização de rotas (safe para banco já existente)
 ALTER TABLE tv_tempo_via ADD COLUMN IF NOT EXISTS "creatorId" INTEGER REFERENCES users(id) ON DELETE SET NULL;
 ALTER TABLE tv_tempo_via ADD COLUMN IF NOT EXISTS categoria VARCHAR(100);

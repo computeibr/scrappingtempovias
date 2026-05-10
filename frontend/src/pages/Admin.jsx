@@ -498,75 +498,78 @@ export default function Admin() {
                 <ul className="divide-y divide-gray-100">
                   {lista.map(rota => (
                     <li key={rota.id}>
-                      <div className="py-3 flex items-start justify-between gap-4">
-                        {/* Info da rota */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <a
-                              href={rota.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm font-medium hover:underline"
-                              style={{ color: '#004A80' }}
-                            >
-                              {rota.name}
-                            </a>
-                            {rota.geometry ? (
-                              <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: '#DCFCE7', color: '#166534' }}>
-                                traçado ok
-                              </span>
-                            ) : (
-                              <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: '#FEF9C3', color: '#854D0E' }}>
-                                sem traçado
-                              </span>
-                            )}
-                            {rota.isSharedWithMe && (
-                              <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: '#EFF6FF', color: '#1D4ED8' }}>
-                                compartilhado
-                              </span>
-                            )}
-                            {rota.creatorId === null && (
-                              <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: '#FEF3C7', color: '#92400E' }}>
-                                legada
-                              </span>
-                            )}
-                          </div>
+                      <div className="py-3 flex flex-col gap-2">
+
+                        {/* Nome da rota — linha inteira */}
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <a
                             href={rota.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-xs text-gray-400 hover:text-[#004A80] truncate block"
+                            className="text-sm font-medium hover:underline leading-snug"
+                            style={{ color: '#004A80' }}
                           >
-                            {rota.url}
+                            {rota.name}
                           </a>
+                          {rota.isSharedWithMe && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: '#EFF6FF', color: '#1D4ED8' }}>↗</span>
+                          )}
+                          {rota.creatorId === null && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: '#FEF3C7', color: '#92400E' }}>legada</span>
+                          )}
                         </div>
 
-                        {/* Botões de ação (apenas para quem pode editar) */}
+                        {/* Botões de ação — linha abaixo do nome */}
                         {rota.canEdit && (
-                          <div className="flex gap-2 flex-shrink-0">
+                          <div className="flex items-center gap-1 justify-end">
+                            {/* Traçado ok / sem traçado */}
+                            <span
+                              title={rota.geometry ? 'Traçado registrado' : 'Sem traçado'}
+                              className="w-8 h-8 flex items-center justify-center rounded-lg"
+                              style={{ color: rota.geometry ? '#166534' : '#854D0E', background: rota.geometry ? '#DCFCE7' : '#FEF9C3' }}
+                            >
+                              {rota.geometry ? (
+                                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
+                                  <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+                                </svg>
+                              ) : (
+                                <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
+                                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+                                </svg>
+                              )}
+                            </span>
+                            {/* Editar */}
                             <button
                               onClick={() => handleIniciarEdicao(rota)}
-                              className="text-xs px-3 py-1 rounded-lg border"
+                              title="Editar rota"
+                              className="w-8 h-8 flex items-center justify-center rounded-lg border transition-colors hover:bg-blue-50"
                               style={{ borderColor: '#004A80', color: '#004A80' }}
                             >
-                              Editar
+                              <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
+                                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                              </svg>
                             </button>
+                            {/* Compartilhar */}
                             <button
-                              onClick={() => {
-                                setShareAberto(shareAberto === rota.id ? null : rota.id);
-                                setNovoEmail('');
-                              }}
-                              className="text-xs px-3 py-1 rounded-lg border"
+                              onClick={() => { setShareAberto(shareAberto === rota.id ? null : rota.id); setNovoEmail(''); }}
+                              title="Compartilhar rota"
+                              className="w-8 h-8 flex items-center justify-center rounded-lg border transition-colors hover:bg-sky-50"
                               style={{ borderColor: '#00C0F3', color: '#00C0F3' }}
                             >
-                              Compartilhar
+                              <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
+                                <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92c0-1.61-1.31-2.92-2.92-2.92z"/>
+                              </svg>
                             </button>
+                            {/* Remover */}
                             <button
                               onClick={() => handleRemover(rota.id, rota.name)}
-                              className="text-xs px-3 py-1 rounded-lg border"
+                              title="Remover rota"
+                              className="w-8 h-8 flex items-center justify-center rounded-lg border transition-colors hover:bg-red-50"
                               style={{ borderColor: '#E51B23', color: '#E51B23' }}
                             >
-                              Remover
+                              <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
+                                <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                              </svg>
                             </button>
                           </div>
                         )}

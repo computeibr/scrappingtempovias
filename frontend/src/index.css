@@ -5,12 +5,26 @@
 @layer base {
   * {
     box-sizing: border-box;
+    /* Remove delay de tap duplo em mobile — comportamento de app nativo */
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    /* Evita bounce overscroll no iOS */
+    overscroll-behavior: none;
   }
 
   body {
     @apply bg-brand-gray text-brand-dark font-sans;
     margin: 0;
     padding: 0;
+    /* Melhora rendering de texto em mobile */
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button, a {
+    /* Remove delay de 300ms em mobile */
+    touch-action: manipulation;
   }
 
   :root {
@@ -46,7 +60,12 @@
   }
 }
 
-/* Scrollbar personalizada */
+/* Oculta scrollbar da bottom tab bar mobile */
+nav.overflow-x-auto::-webkit-scrollbar {
+  display: none;
+}
+
+/* Scrollbar personalizada (apenas vertical, em telas maiores) */
 ::-webkit-scrollbar {
   width: 6px;
 }

@@ -4,7 +4,29 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { promisify } = require('util');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 const User = require('../models/User');
+
+// ─── Upload de avatar ─────────────────────────────────────────────────────────
+const avatarDir = path.resolve(__dirname, '..', 'public', 'upload', 'avatars');
+if (!fs.existsSync(avatarDir)) fs.mkdirSync(avatarDir, { recursive: true });
+
+const avatarUpload = multer({
+  storage: multer.diskStorage({
+    destination: avatarDir,
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
+      cb(null, `user-${req.userId}-${Date.now()}${ext}`);
+    },
+  }),
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2 MB
+  fileFilter: (req, file, cb) => {
+    const allowed = ['.jpg', '.jpeg', '.png', '.webp'];
+    cb(null, allowed.includes(path.extname(file.originalname).toLowerCase()));
+  },
+});
 
 // Perfis: 1=View, 2=User, 99=Admin
 const PERFIS = { 1: 'View', 2: 'User', 99: 'Admin' };
@@ -57,8 +79,34 @@ router.post('/login', async (req, res) => {
 
   return res.json({
     token,
-    user: { id: user.id, name: user.name, email: user.email, perfilId: user.perfilId },
+    user: { id: user.id, name: user.name, email: user.email, perfilId: user.perfilId, avatarUrl: user.avatarUrl || null },
   });
+});
+
+// POST /api/auth/me/avatar — qualquer usuário logado
+router.post('/me/avatar', async (req, res, next) => {
+  // Extrai userId do token antes do multer (req.userId precisa estar disponível no filename)
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ erro: true, mensagem: 'Não autenticado.' });
+  const [, token] = authHeader.split(' ');
+  try {
+    const decoded = await promisify(jwt.verify)(token, process.env.SECRET);
+    req.userId = decoded.id;
+    next();
+  } catch {
+    return res.status(401).json({ erro: true, mensagem: 'Sessão expirada.' });
+  }
+}, avatarUpload.single('avatar'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ erro: true, mensagem: 'Arquivo inválido. Use JPG, PNG ou WebP até 2 MB.' });
+  }
+  const avatarUrl = `/files/avatars/${req.file.filename}`;
+  await User.update({ avatarUrl }, { where: { id: req.userId } });
+  const user = await User.findOne({
+    where: { id: req.userId },
+    attributes: ['id', 'name', 'email', 'perfilId', 'avatarUrl'],
+  });
+  return res.json({ erro: false, user });
 });
 
 // POST /api/auth/criar-usuario — apenas Admin
