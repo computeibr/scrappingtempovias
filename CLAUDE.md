@@ -123,9 +123,13 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 |--------|------|------|-----------|
 | POST | `/api/auth/login` | — | Autenticação, retorna JWT |
 | POST | `/api/auth/criar-usuario` | soAdmin | Cria novo usuário |
-| GET | `/api/auth/usuarios` | soAdmin | Lista todos os usuários |
+| GET | `/api/auth/usuarios` | soAdmin | Lista todos os usuários (inclui avatarUrl) |
 | PUT | `/api/auth/usuarios/:id` | soAdmin | Edita nome, e-mail, perfil e/ou senha |
 | DELETE | `/api/auth/usuarios/:id` | soAdmin | Remove usuário (não pode auto-remover) |
+| PUT | `/api/auth/me` | eAdmin | Usuário edita seus próprios dados (nome, e-mail, senha — sem perfilId) |
+| POST | `/api/auth/me/avatar` | eAdmin | Usuário faz upload da sua própria foto de perfil |
+| POST | `/api/auth/usuarios/:id/avatar` | soAdmin | Admin faz upload de foto para qualquer usuário |
+| DELETE | `/api/auth/usuarios/:id/avatar` | soAdmin | Admin remove foto de perfil de qualquer usuário |
 | GET | `/api/dashboard/resumo` | eAdmin | Contadores filtrados por visibilidade do usuário |
 | GET | `/api/dashboard/rotas` | eAdmin | Rotas visíveis ao usuário (suas + legadas + compartilhadas) |
 | GET | `/api/dashboard/historico/:id` | eAdmin | Médias por hora + evolução diária com filtros |

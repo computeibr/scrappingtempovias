@@ -327,6 +327,10 @@ Após ter o primeiro Admin no banco, os demais usuários são criados via interf
 | GET    | `/api/auth/usuarios`                        | Admin   | Lista todos os usuários                                |
 | PUT    | `/api/auth/usuarios/:id`                    | Admin   | Edita usuário (nome, e-mail, perfil, senha)            |
 | DELETE | `/api/auth/usuarios/:id`                    | Admin   | Remove usuário (não pode auto-remover)                 |
+| PUT    | `/api/auth/me`                              | JWT     | Usuário edita seus próprios dados (sem perfilId)       |
+| POST   | `/api/auth/me/avatar`                       | JWT     | Usuário faz upload da própria foto de perfil           |
+| POST   | `/api/auth/usuarios/:id/avatar`             | Admin   | Admin faz upload de foto para qualquer usuário         |
+| DELETE | `/api/auth/usuarios/:id/avatar`             | Admin   | Admin remove foto de perfil de qualquer usuário        |
 | GET    | `/api/dashboard/resumo`                     | JWT     | Contadores filtrados por visibilidade do usuário       |
 | GET    | `/api/dashboard/rotas`                      | JWT     | Rotas visíveis ao usuário                              |
 | GET    | `/api/dashboard/historico/:id`              | JWT     | Médias por hora + evolução diária com filtros          |
