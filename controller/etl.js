@@ -312,11 +312,19 @@ async function agendamentoDefinido() {
     console.log(`ETL failover: primária ausente há mais de ${ETL_FAILOVER_MINUTOS} min. Assumindo ciclo.`);
   }
 
+  // Transação dedicada: mantém uma única conexão do pool presa do início ao fim do
+  // ciclo. pg_try_advisory_xact_lock libera o lock automaticamente no commit/rollback,
+  // sem depender de pg_advisory_unlock acertar a mesma conexão (o que falhava com
+  // pg_try_advisory_lock em sessão, deixando o lock preso para sempre no pool).
+  const transacaoLock = await sequelize.transaction();
+
   const [[{ acquired }]] = await sequelize.query(
-    `SELECT pg_try_advisory_lock(${ETL_LOCK_KEY}) AS acquired`
+    `SELECT pg_try_advisory_xact_lock(${ETL_LOCK_KEY}) AS acquired`,
+    { transaction: transacaoLock }
   );
   if (!acquired) {
     console.log('ETL: outro processo está rodando. Ciclo ignorado.');
+    await transacaoLock.rollback();
     return;
   }
 
@@ -366,7 +374,7 @@ async function agendamentoDefinido() {
     }
   } finally {
     // Browser NÃO é fechado aqui — reutilizado no próximo ciclo (ver obterBrowser)
-    await sequelize.query(`SELECT pg_advisory_unlock(${ETL_LOCK_KEY})`).catch(() => {});
+    await transacaoLock.commit().catch(() => {});
   }
 }
 
