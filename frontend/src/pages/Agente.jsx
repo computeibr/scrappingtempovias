@@ -205,7 +205,7 @@ export default function Agente() {
               (3) Se ausente {'>'} 10 min, VPS tenta o advisory lock e roda com concorrência reduzida.
             </Item>
             <Item label="Dedup anti-duplicata">
-              (1) <strong>Advisory lock PostgreSQL</strong> <code className="bg-gray-100 px-1 rounded">pg_try_advisory_lock(737465)</code> — impede dois processos de escrever simultaneamente.{' '}
+              (1) <strong>Advisory lock PostgreSQL</strong> <code className="bg-gray-100 px-1 rounded">pg_try_advisory_xact_lock(737465)</code> dentro de uma transação — impede dois processos de escrever simultaneamente e libera o lock automaticamente no commit/rollback (evita lock preso por descompasso de conexão no pool).{' '}
               (2) <strong>Dedup de 3 min</strong> — descarta leitura se já existe registro do mesmo viaId nos últimos 3 min.
             </Item>
             <Item label="Deploy VPS">A cada <code className="bg-gray-100 px-1 rounded">git push main</code>, o EasyPanel faz redeploy automático do container.</Item>
