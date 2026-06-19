@@ -165,6 +165,18 @@ async function enviarAlertaEmail(mensagem) {
 let browserInstance = null;
 let ciclosBrowser = 0;
 
+// close()/launch() do Puppeteer não têm timeout próprio: se o Chromium ficar
+// preso (observado no Windows ao reciclar), o await nunca resolve, isRunning
+// fica true para sempre e o advisory lock fica preso no Postgres até intervenção
+// manual. Race contra timeout garante que o ciclo sempre segue adiante.
+function comTimeout(promise, ms, label) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} excedeu ${ms}ms`)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 async function obterBrowser() {
   const reutilizavel =
     browserInstance &&
@@ -177,16 +189,22 @@ async function obterBrowser() {
 
   if (browserInstance) {
     console.log(`ETL: reciclando browser após ${ciclosBrowser} ciclo(s).`);
-    await browserInstance.close().catch(() => {});
+    const antigo = browserInstance;
     browserInstance = null;
+    try {
+      await comTimeout(antigo.close(), 15000, 'browser.close()');
+    } catch (err) {
+      console.warn(`ETL: ${err.message} — forçando encerramento do processo Chromium.`);
+      antigo.process()?.kill('SIGKILL');
+    }
   }
 
   ciclosBrowser = 0;
-  browserInstance = await puppeteer.launch({
-    headless: 'new',
-    protocolTimeout: 120000,
-    args: CHROME_ARGS,
-  });
+  browserInstance = await comTimeout(
+    puppeteer.launch({ headless: 'new', protocolTimeout: 120000, args: CHROME_ARGS }),
+    30000,
+    'puppeteer.launch()'
+  );
   return browserInstance;
 }
 
