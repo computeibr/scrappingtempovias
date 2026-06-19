@@ -336,6 +336,18 @@ async function agendamentoDefinido() {
   // pg_try_advisory_lock em sessão, deixando o lock preso para sempre no pool).
   const transacaoLock = await sequelize.transaction();
 
+  // Rede de segurança: incidente real travou indefinidamente após adquirir o lock
+  // (axios.get sem timeout para um Express momentaneamente sem resposta), deixando
+  // a conexão "idle in transaction" presa por 52+ min no Postgres e bloqueando todo
+  // ciclo seguinte (local e VPS) com "outro processo está rodando". SET LOCAL garante
+  // que o Postgres mata a sessão e libera o lock sozinho se algo no ciclo travar —
+  // generoso o suficiente para não interferir num ciclo legítimo (a conexão fica
+  // ociosa durante todo o scraping, que pode levar 1-2 min com 300 rotas).
+  await sequelize.query(
+    `SET LOCAL idle_in_transaction_session_timeout = '600000'`,
+    { transaction: transacaoLock }
+  );
+
   const [[{ acquired }]] = await sequelize.query(
     `SELECT pg_try_advisory_xact_lock(${ETL_LOCK_KEY}) AS acquired`,
     { transaction: transacaoLock }
@@ -348,11 +360,12 @@ async function agendamentoDefinido() {
 
   let browser;
   try {
-    const { data } = await axios.get('http://localhost:3001/rota/rotasvia');
+    const { data } = await axios.get('http://localhost:3001/rota/rotasvia', { timeout: 15000 });
     const fila = [...data.rotasvias];
 
     const inicio = Date.now();
-    console.log(`Iniciando ciclo: ${fila.length} rotas em até ${CONCURRENCY} abas paralelas.${FAST_MODE ? ' [FAST MODE]' : ''}`);
+    const inicioFormatado = new Date(inicio).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+    console.log(`Iniciando ciclo em ${inicioFormatado}: ${fila.length} rotas em até ${CONCURRENCY} abas paralelas.${FAST_MODE ? ' [FAST MODE]' : ''}`);
 
     browser = await obterBrowser();
     ciclosBrowser++;
