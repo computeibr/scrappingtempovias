@@ -208,6 +208,10 @@ export default function Agente() {
               (1) <strong>Advisory lock PostgreSQL</strong> <code className="bg-gray-100 px-1 rounded">pg_try_advisory_xact_lock(737465)</code> dentro de uma transação — impede dois processos de escrever simultaneamente e libera o lock automaticamente no commit/rollback (evita lock preso por descompasso de conexão no pool).{' '}
               (2) <strong>Dedup de 3 min</strong> — descarta leitura se já existe registro do mesmo viaId nos últimos 3 min.
             </Item>
+            <Item label="Timeout no recycle do browser">
+              <code className="bg-gray-100 px-1 rounded">browser.close()</code>/<code className="bg-gray-100 px-1 rounded">puppeteer.launch()</code> não têm timeout próprio — se o Chromium travar ao reciclar (incidente real na máquina local), o ciclo fica preso para sempre e o advisory lock junto.{' '}
+              Corrigido com <code className="bg-gray-100 px-1 rounded">Promise.race</code> contra timeout: 15s no <code className="bg-gray-100 px-1 rounded">close()</code> (com fallback para <code className="bg-gray-100 px-1 rounded">SIGKILL</code>) e 30s no <code className="bg-gray-100 px-1 rounded">launch()</code>.
+            </Item>
             <Item label="Deploy VPS">A cada <code className="bg-gray-100 px-1 rounded">git push main</code>, o EasyPanel faz redeploy automático do container.</Item>
             <Item label="PM2 local">
               Instalar globalmente (apenas uma vez): <code className="bg-gray-100 px-1 rounded">npm install -g pm2</code>.{' '}
