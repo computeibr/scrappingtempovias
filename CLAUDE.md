@@ -236,6 +236,10 @@ Cores extraídas do `identidadevisual2022.pdf` (Manual de Marca Prefeitura Rio):
 - Azul celeste (accent): `#00C0F3`
 - Laranja: `#E95F3E` | Vermelho: `#E51B23` | Amarelo: `#F9C600` | Verde: `#34973B`
 - Fundo: `#F0F0F0` | Texto: `#1D1D1B`
+- Tipografia: uma fonte sans-serif moderna (ex.: Inter, Sora, ou similar via Google Fonts), com hierarquia clara entre títulos grandes e texto de apoio.
+- Totalmente responsivo (mobile-first), já que muitos visitantes vão abrir pelo celular. Essa estratégia mobile-first funcionou muito bem neste projeto — vale repetir os mesmos ajustes de UX:
+  - Inputs de formulário com `font-size: 1rem` (16px) no mínimo, para o Safari iOS não forçar zoom automático ao focar o campo. Corrigido em `frontend/src/index.css` (classe `.input`: `text-sm` → `text-base`).
+  - Não desabilitar pinch-to-zoom (sem `user-scalable=no` / `maximum-scale=1`) — preserva acessibilidade.
 
 ## Decisões arquiteturais tomadas
 - Frontend e backend no **mesmo repositório** (monorepo)

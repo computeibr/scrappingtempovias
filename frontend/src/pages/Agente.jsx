@@ -378,6 +378,9 @@ export default function Agente() {
             <Item label="Touch / CSS">
               <code className="bg-gray-100 px-1 rounded">touch-action: manipulation</code> em botões e links — remove delay de 300ms. <code className="bg-gray-100 px-1 rounded">-webkit-tap-highlight-color: transparent</code> — sem flash azul. <code className="bg-gray-100 px-1 rounded">overscroll-behavior: none</code> — sem bounce iOS.
             </Item>
+            <Item label="Fix zoom automático em inputs (iOS)">
+              Classe <code className="bg-gray-100 px-1 rounded">.input</code> usava <code className="bg-gray-100 px-1 rounded">text-sm</code> (14px) — abaixo do limiar de 16px que o Safari iOS usa para decidir se força zoom ao focar um campo. Corrigido para <code className="bg-gray-100 px-1 rounded">text-base</code> (16px) em todos os formulários (Login, Perfil, Admin, Usuários).
+            </Item>
           </Secao>
 
           {/* Perfil e Avatar */}
