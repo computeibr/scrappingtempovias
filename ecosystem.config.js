@@ -1,13 +1,14 @@
 module.exports = {
   apps: [{
-    name: "my-app",
+    name: "tempovias",
     script: "./app.js",
     exec_mode: "fork",
     autorestart: true,
-    watch: false,
+    watch: ["controller", "middlewares", "models", "utils", "app.js"],
+    ignore_watch: ["node_modules", "frontend", "public/upload", "logs"],
     max_memory_restart: "1G",
     env: {
-      NODE_ENV: "production"
+      NODE_ENV: "development"
     }
   }]
 }

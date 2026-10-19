@@ -260,6 +260,7 @@ export default function Agente() {
             <Item label="Cron">A cada 5 min (<code className="bg-gray-100 px-1 rounded">*/5 * * * *</code>, timezone America/Sao_Paulo). Executa também imediatamente ao iniciar.</Item>
             <Item label="Worker pool">Até <code className="bg-gray-100 px-1 rounded">ETL_CONCURRENCY</code> abas Puppeteer abertas simultaneamente. Fila compartilhada com <code className="bg-gray-100 px-1 rounded">Array.shift()</code> — seguro no event loop single-thread.</Item>
             <Item label="Browser persistente">Chromium reutilizado entre ciclos. Reciclado após <code className="bg-gray-100 px-1 rounded">ETL_BROWSER_RECYCLE</code> ciclos (padrão 12 ≈ 1h) para prevenir memory leak.</Item>
+            <Item label="Disjuntor de falhas">Após <code className="bg-gray-100 px-1 rounded">ETL_LIMITE_FALHAS_SEGUIDAS</code> falhas seguidas (padrão 8), o ciclo aborta as rotas restantes e força o recycle do browser. Incidente real: Chromium reutilizado no 2º ciclo passava a falhar 100% das rotas, levando ~14 min por ciclo. Na máquina local usa-se <code className="bg-gray-100 px-1 rounded">ETL_BROWSER_RECYCLE=1</code> (browser novo a cada ciclo).</Item>
             <Item label="FAST_MODE">
               <code className="bg-gray-100 px-1 rounded">ETL_FAST_MODE=true</code>: usa <code className="bg-gray-100 px-1 rounded">domcontentloaded</code> + espera fixa de 3s.{' '}
               <code className="bg-gray-100 px-1 rounded">false</code>: usa <code className="bg-gray-100 px-1 rounded">networkidle2</code> (mais lento, mais preciso).

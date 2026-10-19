@@ -1,9 +1,18 @@
 # Tempovias — Monitoramento de Rotas do Google Maps
 
+
+pm2 start ecosystem.config.js   # inicia (ou reinicia com as configs do arquivo)
+pm2 logs tempovias               # acompanha os logs em tempo real
+pm2 status                       # lista processos, uptime, restarts
+pm2 restart tempovias            # reinicia manualmente
+pm2 stop tempovias                # para sem remover da lista
+pm2 delete tempovias              # remove da lista do PM2
+
 Plataforma full-stack para monitoramento automático do tempo de viagem em rotas urbanas. O backend coleta dados do Google Maps a cada 5 minutos via Puppeteer; o frontend (React) exibe dashboards interativos com mapa de rotas, gráficos de variação por hora e filtros históricos.
 
 **Stack:** Node.js + Express + Sequelize + Puppeteer · React 18 + Vite + Tailwind · PostgreSQL · Docker + EasyPanel
 
+###  c:\Apps\scrappingtempovias -> pm2 start ecosystem.config.js
 ---
 
 ## Quick Start — desenvolvimento local

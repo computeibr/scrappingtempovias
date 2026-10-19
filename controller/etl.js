@@ -165,6 +165,13 @@ async function enviarAlertaEmail(mensagem) {
 let browserInstance = null;
 let ciclosBrowser = 0;
 
+// Disjuntor: um browser reutilizado pode "degradar" e passar a falhar todas as rotas
+// (incidente real: 2º ciclo no mesmo Chromium, ~25 ok e depois 100% timeout). Cada
+// falha custa ~2×20s, então o ciclo levava ~14 min e o cron pulava os seguintes.
+// Após N falhas seguidas, aborta o restante da fila e força recycle do browser.
+const LIMITE_FALHAS_SEGUIDAS = parseInt(process.env.ETL_LIMITE_FALHAS_SEGUIDAS || '8', 10);
+let falhasSeguidasRota = 0;
+
 // close()/launch() do Puppeteer não têm timeout próprio: se o Chromium ficar
 // preso (observado no Windows ao reciclar), o await nunca resolve, isRunning
 // fica true para sempre e o advisory lock fica preso no Postgres até intervenção
@@ -253,7 +260,7 @@ async function getTempoVias(page, url, name, viaId) {
       });
       if (jaExiste) {
         console.log(`Dedup: leitura recente já existe para "${name}" (viaId ${viaId}), pulando.`);
-        return;
+        return true;
       }
 
       await TempoVias.create({
@@ -268,7 +275,7 @@ async function getTempoVias(page, url, name, viaId) {
       // Não bloqueia o ciclo ETL — falhas são silenciosas
       verificarVariacao(viaId, name, minTime.toString(), url).catch(() => {});
 
-      return;
+      return true;
     } catch (error) {
       if (attempt < 2) {
         console.log(`Tentando novamente: ${name}`);
@@ -278,6 +285,7 @@ async function getTempoVias(page, url, name, viaId) {
       }
     }
   }
+  return false;
 }
 
 // ─── Worker — pega rotas da fila compartilhada até ela esvaziar ───────────────
@@ -298,7 +306,13 @@ async function worker(browser, fila, id) {
     while (fila.length > 0) {
       const rota = fila.shift();
       if (!rota) continue;
-      await getTempoVias(page, rota.url, rota.name, rota.id);
+      const ok = await getTempoVias(page, rota.url, rota.name, rota.id);
+      falhasSeguidasRota = ok ? 0 : falhasSeguidasRota + 1;
+      if (falhasSeguidasRota >= LIMITE_FALHAS_SEGUIDAS && fila.length > 0) {
+        console.warn(`ETL: ${falhasSeguidasRota} falhas seguidas — browser degradado. Abortando ${fila.length} rota(s) restantes e forçando recycle.`);
+        fila.length = 0;
+        ciclosBrowser = MAX_CICLOS_BROWSER;
+      }
     }
   } finally {
     await page.close().catch(() => {});
@@ -369,6 +383,7 @@ async function agendamentoDefinido() {
 
     browser = await obterBrowser();
     ciclosBrowser++;
+    falhasSeguidasRota = 0;
 
     const promises = [];
     const abas = Math.min(CONCURRENCY, fila.length);
