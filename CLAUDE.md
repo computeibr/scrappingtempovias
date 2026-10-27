@@ -52,7 +52,7 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
     ├── src/
     │   ├── pages/Login.jsx
     │   ├── pages/Dashboard.jsx      ← sem mapa (custo API); linha ref. histórica no gráfico; master-detail mobile
-    │   ├── pages/Mapa.jsx           ← mapa Google Maps + modal com gráfico ao clicar (todos os usuários)
+    │   ├── pages/Mapa.jsx           ← mapa Google Maps + chips de filtro por categoria + modal com gráfico ao clicar (todos os usuários)
     │   ├── pages/Perfil.jsx         ← todos os usuários: editar nome, e-mail, senha e avatar (sem alterar perfilId)
     │   ├── pages/Admin.jsx         ← CRUD de rotas + preview mapa (fitBounds) + validação visual de campos + compartilhamento inline
     │   ├── pages/Ajustes.jsx       ← Admin only: assume autoria de rotas órfãs (creatorId IS NULL)
@@ -316,7 +316,7 @@ Cores extraídas do `identidadevisual2022.pdf` (Manual de Marca Prefeitura Rio):
 - **Volume persistente de avatares**: `docker-compose.yml` monta named volume `uploads` em `/app/public/upload` — avatares sobrevivem a qualquer redeploy. `.gitignore` inclui `public/upload/` para não commitar uploads locais.
 - **Identidade visual atualizada**: sidebar, header mobile e bottom tab bar usam `#13335A` (azul marinho escuro) em vez de `#004A80`. `tailwind.config.js` com aliases semânticos: `primary` (#13335A), `secondary` (#2C678C), `background` (#ECEDED), `terciary` (#42B9EB). Body usa `#ECEDED` (`brand-gray-mid`). Scrollbar thumb `#13335A`.
 - **Fix logout mobile**: bottom tab bar oculta (`hidden`) quando sidebar está aberta (`navOpen === true`) — elimina sobreposição z-index que impedia acesso ao botão "Sair" em telas pequenas (ex: Samsung Galaxy A07).
-- **Mapa separado do Dashboard** (`/mapa`, todos os usuários): mapa Google Maps em página dedicada para evitar custo de API no carregamento do Dashboard. Clicar numa rota abre modal com `TimeChart`. Dashboard mantém apenas lista + gráficos.
+- **Mapa separado do Dashboard** (`/mapa`, todos os usuários): mapa Google Maps em página dedicada para evitar custo de API no carregamento do Dashboard. Clicar numa rota abre modal com `TimeChart`. Dashboard mantém apenas lista + gráficos. Chips de categoria sobre o mapa filtram as rotas (client-side). Linhas com `strokeOpacity` 0,9 / `strokeWeight` 4 (eram 0,45 / 3, ficavam apagadas).
 - **Referência histórica no gráfico** (`TimeChart`): linha celeste tracejada mostra média das últimas 3 semanas, mesmo dia da semana de hoje, excluindo feriados. Parâmetro `diaSemanaRef` enviado pelo Dashboard. Tooltip mostra % de variação entre média do período e referência.
 - **Card de hora atual vs. referência** (`StatsCards`): quando rota selecionada, exibe card com média da hora atual, média de referência histórica e % de variação — base para alertas aos gestores.
 - **Monitor — filtros de status e variação**: botões "Todos/🔴 Acima/🟡 Normal/🟢 Abaixo" + limiar de variação (>5/25/50/75%) que aparece ao selecionar "Acima". Filtros são client-side (React state, sem nova chamada à API). Grid sem `max-w-7xl` — ocupa tela inteira.

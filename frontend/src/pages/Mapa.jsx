@@ -12,6 +12,7 @@ export default function Mapa() {
   const [rotaAtiva, setRotaAtiva] = useState(null);
   const [historico, setHistorico] = useState(null);
   const [loadingHistorico, setLoadingHistorico] = useState(false);
+  const [filtroCategoria, setFiltroCategoria] = useState('');
 
   useEffect(() => {
     async function init() {
@@ -56,7 +57,12 @@ export default function Mapa() {
     setHistorico(null);
   }
 
-  const idxRota = rotaAtiva ? rotas.findIndex((r) => r.id === rotaAtiva.id) : -1;
+  const categorias = [...new Set(rotas.map((r) => r.categoria).filter(Boolean))].sort();
+  const rotasFiltradas = filtroCategoria
+    ? rotas.filter((r) => (r.categoria || '') === filtroCategoria)
+    : rotas;
+
+  const idxRota = rotaAtiva ? rotasFiltradas.findIndex((r) => r.id === rotaAtiva.id) : -1;
 
   return (
     <AppShell>
@@ -68,11 +74,32 @@ export default function Mapa() {
           </div>
         ) : (
           <RouteMap
-            rotas={rotas}
+            rotas={rotasFiltradas}
             rotaAtiva={rotaAtiva}
             snapshot={snapshot}
             onRotaClick={handleRotaClick}
           />
+        )}
+
+        {/* Filtro por categoria */}
+        {!loading && categorias.length > 0 && (
+          <div className="absolute top-3 left-3 right-14 z-10 flex gap-1.5 overflow-x-auto pb-1">
+            {['', ...categorias].map((cat) => {
+              const ativo = filtroCategoria === cat;
+              return (
+                <button
+                  key={cat || '__todas'}
+                  onClick={() => setFiltroCategoria(ativo && cat ? '' : cat)}
+                  className="flex-shrink-0 text-xs font-medium px-3 py-1.5 rounded-full shadow border transition-colors"
+                  style={ativo
+                    ? { background: '#13335A', borderColor: '#13335A', color: '#fff' }
+                    : { background: '#fff', borderColor: '#d1d5db', color: '#13335A' }}
+                >
+                  {cat || 'Todas'}
+                </button>
+              );
+            })}
+          </div>
         )}
 
         {/* Modal com gráfico da rota */}

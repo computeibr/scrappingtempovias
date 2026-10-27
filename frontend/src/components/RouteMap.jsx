@@ -36,8 +36,8 @@ function RotaPolyline({ rota, index, isActive, onPolylineClick }) {
       path={path}
       options={{
         strokeColor: routeColor(index),
-        strokeWeight: isActive ? 7 : 3,
-        strokeOpacity: isActive ? 1.0 : 0.45,
+        strokeWeight: isActive ? 7 : 4,
+        strokeOpacity: isActive ? 1.0 : 0.9,
         zIndex: isActive ? 10 : 1,
       }}
       onClick={(e) => onPolylineClick(e, rota)}
