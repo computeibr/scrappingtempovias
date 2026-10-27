@@ -234,7 +234,7 @@ export default function Agente() {
               Ao selecionar uma rota, aparece card com: média da hora atual, referência histórica e % de variação — base para alertas aos gestores. Estrutura: header (nome completo da rota) / main (métricas em 3 colunas) / footer (contexto histórico).
             </Item>
             <Item label="Mapa (/mapa)">
-              Página separada com o mapa Google Maps completo. Clicar em qualquer rota abre modal com o <code className="bg-gray-100 px-1 rounded">TimeChart</code> daquela rota. Chips de categoria no topo filtram as rotas exibidas. Linhas com opacidade 0,9 e espessura 4 (ativa: 7) para bom contraste. Visível a todos os usuários autenticados.
+              Página separada com o mapa Google Maps completo. Clicar em qualquer rota abre modal com o <code className="bg-gray-100 px-1 rounded">TimeChart</code> daquela rota. Dropdown de categorias no topo (múltipla seleção) filtra as rotas exibidas. Linhas com opacidade 0,9 e espessura 4 (ativa: 7) para bom contraste. Visível a todos os usuários autenticados.
             </Item>
             <Item label="Perfil (/perfil)">
               Todos os usuários logados. Editar nome, e-mail, senha e foto de perfil. <strong>perfilId é read-only</strong> — somente Admin pode alterar via <code className="bg-gray-100 px-1 rounded">/usuarios</code>. Avatar com overlay de câmera, upload imediato (JPG/PNG/WebP · 2 MB). Acessível clicando no avatar da sidebar ou do header mobile.

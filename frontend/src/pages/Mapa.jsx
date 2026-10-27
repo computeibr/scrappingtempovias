@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../services/api';
 import AppShell from '../components/AppShell';
 import RouteMap from '../components/RouteMap';
@@ -12,7 +12,19 @@ export default function Mapa() {
   const [rotaAtiva, setRotaAtiva] = useState(null);
   const [historico, setHistorico] = useState(null);
   const [loadingHistorico, setLoadingHistorico] = useState(false);
-  const [filtroCategoria, setFiltroCategoria] = useState('');
+  const [catSelecionadas, setCatSelecionadas] = useState([]); // vazio = todas
+  const [filtroAberto, setFiltroAberto] = useState(false);
+  const filtroRef = useRef(null);
+
+  // Fecha o dropdown ao clicar fora
+  useEffect(() => {
+    if (!filtroAberto) return;
+    function fora(e) {
+      if (filtroRef.current && !filtroRef.current.contains(e.target)) setFiltroAberto(false);
+    }
+    document.addEventListener('mousedown', fora);
+    return () => document.removeEventListener('mousedown', fora);
+  }, [filtroAberto]);
 
   useEffect(() => {
     async function init() {
@@ -58,9 +70,13 @@ export default function Mapa() {
   }
 
   const categorias = [...new Set(rotas.map((r) => r.categoria).filter(Boolean))].sort();
-  const rotasFiltradas = filtroCategoria
-    ? rotas.filter((r) => (r.categoria || '') === filtroCategoria)
+  const rotasFiltradas = catSelecionadas.length
+    ? rotas.filter((r) => catSelecionadas.includes(r.categoria))
     : rotas;
+
+  function toggleCategoria(cat) {
+    setCatSelecionadas((sel) => (sel.includes(cat) ? sel.filter((c) => c !== cat) : [...sel, cat]));
+  }
 
   const idxRota = rotaAtiva ? rotasFiltradas.findIndex((r) => r.id === rotaAtiva.id) : -1;
 
@@ -81,24 +97,49 @@ export default function Mapa() {
           />
         )}
 
-        {/* Filtro por categoria */}
+        {/* Filtro por categoria (múltipla seleção) */}
         {!loading && categorias.length > 0 && (
-          <div className="absolute top-3 left-3 right-14 z-10 flex gap-1.5 overflow-x-auto pb-1">
-            {['', ...categorias].map((cat) => {
-              const ativo = filtroCategoria === cat;
-              return (
-                <button
-                  key={cat || '__todas'}
-                  onClick={() => setFiltroCategoria(ativo && cat ? '' : cat)}
-                  className="flex-shrink-0 text-xs font-medium px-3 py-1.5 rounded-full shadow border transition-colors"
-                  style={ativo
-                    ? { background: '#13335A', borderColor: '#13335A', color: '#fff' }
-                    : { background: '#fff', borderColor: '#d1d5db', color: '#13335A' }}
-                >
-                  {cat || 'Todas'}
-                </button>
-              );
-            })}
+          <div ref={filtroRef} className="absolute top-3 left-3 z-10 w-64 max-w-[calc(100%-4.5rem)]">
+            <button
+              onClick={() => setFiltroAberto((v) => !v)}
+              className="w-full flex items-center justify-between gap-2 bg-white text-[#13335A] text-sm font-medium px-3 py-2 rounded-lg shadow border border-gray-300"
+            >
+              <span className="truncate">
+                {catSelecionadas.length === 0
+                  ? 'Todas as categorias'
+                  : catSelecionadas.length === 1
+                    ? catSelecionadas[0]
+                    : `${catSelecionadas.length} categorias`}
+              </span>
+              <span className="text-xs text-gray-400 flex-shrink-0">{filtroAberto ? '▲' : '▼'}</span>
+            </button>
+
+            {filtroAberto && (
+              <div className="mt-1 bg-white rounded-lg shadow-lg border border-gray-200 max-h-72 overflow-y-auto py-1">
+                {categorias.map((cat) => (
+                  <label
+                    key={cat}
+                    className="flex items-center gap-2 px-3 py-2 text-sm text-[#1D1D1B] hover:bg-gray-50 cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={catSelecionadas.includes(cat)}
+                      onChange={() => toggleCategoria(cat)}
+                      className="w-4 h-4 accent-[#13335A]"
+                    />
+                    <span className="truncate">{cat}</span>
+                  </label>
+                ))}
+                {catSelecionadas.length > 0 && (
+                  <button
+                    onClick={() => setCatSelecionadas([])}
+                    className="w-full text-left px-3 py-2 text-xs text-[#2C678C] hover:bg-gray-50 border-t border-gray-100"
+                  >
+                    Limpar seleção (mostrar todas)
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
 

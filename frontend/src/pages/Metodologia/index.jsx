@@ -213,6 +213,11 @@ const SECOES = [
         conteudo: 'Ao cadastrar uma rota, o sistema verifica se já existe outra com nome parecido ou com o mesmo início e fim — inclusive rotas de outros usuários que você não vê. Nesse caso aparece o aviso "Já existem rotas parecidas", com o nome da rota e de quem a criou. Você pode clicar em "Pedir acesso": o criador recebe o pedido em "Gerenciar Rotas" e, se aprovar, a rota passa a aparecer para você em modo somente leitura. O aviso não impede o cadastro.',
       },
       {
+        tipo: 'destaque',
+        titulo: 'Filtrar o mapa por categoria',
+        conteudo: 'Na página "Mapa", o menu no canto superior esquerdo lista as categorias das rotas que você vê. Marque uma ou mais para exibir só as rotas dessas categorias; com nenhuma marcada, o mapa mostra todas. "Limpar seleção" volta a mostrar todas.',
+      },
+      {
         tipo: 'passos',
         titulo: 'Como compartilhar uma rota',
         itens: [
