@@ -8,6 +8,7 @@ const Rotasvia = db.define('tv_tempo_via', {
     geometry:  { type: Sequelize.TEXT },
     categoria: { type: Sequelize.STRING(100), allowNull: true },
     creatorId: { type: Sequelize.INTEGER, allowNull: true },
+    publica:   { type: Sequelize.BOOLEAN, allowNull: false, defaultValue: false },
 }, { freezeTableName: true });
 
 // Rotasvia.sync();

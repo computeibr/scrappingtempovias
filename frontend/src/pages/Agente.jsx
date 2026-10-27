@@ -77,7 +77,7 @@ function TabelaAcesso() {
 function TabelaRotas() {
   const regras = [
     { quem: 'Admin (99)',       vê: 'Todas as rotas sem exceção' },
-    { quem: 'User / View (1,2)', vê: 'Suas rotas + rotas legadas (creatorId IS NULL) + rotas compartilhadas com seu e-mail' },
+    { quem: 'User / View (1,2)', vê: 'Suas rotas + rotas legadas (creatorId IS NULL) + rotas públicas (publica=true) + rotas compartilhadas com seu e-mail' },
   ];
   return (
     <div className="overflow-x-auto -mx-5">
@@ -308,6 +308,7 @@ export default function Agente() {
             <Item label="Visibilidade"><TabelaRotas /></Item>
             <Item label="Escrita">Criador da rota ou Admin podem editar/remover. Compartilhamento é somente leitura.</Item>
             <Item label="Compartilhamento">Por e-mail (não por user_id). Criador ou Admin adicionam e-mails via API. Badge "compartilhado" exibido no frontend.</Item>
+            <Item label="Pública">Coluna <code className="bg-gray-100 px-1 rounded">publica BOOLEAN DEFAULT false</code>. Checkbox no cadastro/edição; rota pública é visível (somente leitura) a todos os usuários logados. Badge "pública" na lista.</Item>
             <Item label="Categoria">Campo <code className="bg-gray-100 px-1 rounded">VARCHAR(100)</code> livre. Input com <code className="bg-gray-100 px-1 rounded">&lt;datalist&gt;</code> sugere categorias existentes. Chips clicáveis no Dashboard e Monitor filtram por categoria.</Item>
             <Item label="Órfãs">Página <strong>/ajustes</strong> — Admin reivindica rotas sem creatorId individualmente ou todas de uma vez.</Item>
             <Item label="Nomes são links">Em todo lugar onde <code className="bg-gray-100 px-1 rounded">rota.name</code> é exibido, deve ser um <code className="bg-gray-100 px-1 rounded">&lt;a href={'{'}rota.url{'}'}&gt;</code> abrindo em nova aba.</Item>

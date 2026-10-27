@@ -4,7 +4,7 @@ const RouteShare = require('../models/routeShare');
 const User       = require('../models/User');
 
 // Retorna Rotasvia.findAll() filtrado pelas rotas visíveis ao usuário:
-// Admin → todas; outros → criadas por ele + legadas (creatorId null) + compartilhadas com seu e-mail
+// Admin → todas; outros → criadas por ele + legadas (creatorId null) + públicas + compartilhadas com seu e-mail
 async function rotasVisiveis(userId, userRole, options = {}) {
     if (userRole === 99) {
         return Rotasvia.findAll(options);
@@ -22,6 +22,7 @@ async function rotasVisiveis(userId, userRole, options = {}) {
             [Op.or]: [
                 { creatorId: userId },
                 { creatorId: null },
+                { publica: true },
                 ...(sharedIds.length ? [{ id: { [Op.in]: sharedIds } }] : []),
             ],
         },

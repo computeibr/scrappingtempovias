@@ -60,6 +60,7 @@ router.get('/rotasvia/minhas', eAdmin, async (req, res) => {
                     [Op.or]: [
                         { creatorId: userId },
                         { creatorId: null },
+                        { publica: true },
                         ...(sharedIds.length ? [{ id: { [Op.in]: sharedIds } }] : []),
                     ],
                 },
@@ -101,7 +102,7 @@ router.get('/rotasvia/minhas', eAdmin, async (req, res) => {
 
 // ─── POST /rotasvia — cria rota vinculando ao criador ─────────────────────────
 router.post('/rotasvia', eAdmin, async (req, res) => {
-    const { name, url, geometry, categoria } = req.body;
+    const { name, url, geometry, categoria, publica } = req.body;
     const { userId } = req;
 
     if (!name || !url) {
@@ -114,6 +115,7 @@ router.post('/rotasvia', eAdmin, async (req, res) => {
             url,
             geometry:  geometry  || null,
             categoria: categoria || null,
+            publica:   publica === true,
             creatorId: userId,
         });
         return res.status(201).json({ erro: false, mensagem: 'Rota cadastrada com sucesso!', rota });
@@ -125,7 +127,7 @@ router.post('/rotasvia', eAdmin, async (req, res) => {
 // ─── PUT /rotasvia/:id — edita rota (criador ou admin) ───────────────────────
 router.put('/rotasvia/:id', eAdmin, async (req, res) => {
     const { id } = req.params;
-    const { name, url, geometry, categoria } = req.body;
+    const { name, url, geometry, categoria, publica } = req.body;
     const { userId, userRole } = req;
 
     if (!name || !url) {
@@ -138,7 +140,10 @@ router.put('/rotasvia/:id', eAdmin, async (req, res) => {
 
     try {
         const [updated] = await Rotasvia.update(
-            { name, url, geometry: geometry || null, categoria: categoria || null },
+            {
+                name, url, geometry: geometry || null, categoria: categoria || null,
+                ...(publica !== undefined && { publica: publica === true }),
+            },
             { where: { id } },
         );
         if (!updated) return res.status(404).json({ erro: true, mensagem: 'Rota não encontrada.' });

@@ -35,7 +35,7 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 │   ├── health.js       ← GET / (público), GET /detalhes (soAdmin), POST /test-email (soAdmin)
 │   └── rotasvia.js     ← CRUD de rotas + autoria + compartilhamento + rotas órfãs
 ├── utils/
-│   ├── rotasVisiveis.js  ← helper compartilhado: Admin→todas; outros→suas+legadas+compartilhadas
+│   ├── rotasVisiveis.js  ← helper compartilhado: Admin→todas; outros→suas+legadas+públicas+compartilhadas
 │   └── monitorSistema.js ← loop setInterval 60s: alerta por e-mail se CPU da VPS > threshold
 ├── models/
 │   ├── db.js           ← Sequelize dialect postgres; suporte a DB_SSL via env
@@ -73,7 +73,7 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 ## Banco de dados — tabelas
 | Tabela | Descrição |
 |---|---|
-| `tv_tempo_via` | Rotas: id, name, url, geometry, **categoria**, **creatorId** (FK→users), createdAt, updatedAt |
+| `tv_tempo_via` | Rotas: id, name, url, geometry, **categoria**, **creatorId** (FK→users), **publica** (BOOLEAN, default false), createdAt, updatedAt |
 | `route_shares` | Compartilhamentos: id, routeId (FK→tv_tempo_via), email, createdAt, updatedAt; UNIQUE(routeId,email) |
 | `tempovias` | Histórico: id, viaId (FK), nomedarota, tempo, km, leitura (timestamp), urlfoto, createdAt, updatedAt |
 | `users` | Usuários: id, name, email, password (bcrypt), perfilId (1=View, 2=User, 99=Admin), **avatarUrl** (VARCHAR 500, nullable), createdAt, updatedAt |
@@ -102,7 +102,7 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 
 ### Visibilidade (`GET /api/rotas/rotasvia/minhas`)
 - **Admin**: vê todas as rotas
-- **User/View**: vê rotas onde `creatorId = userId` OU `creatorId IS NULL` (legadas) OU email do usuário está em `route_shares`
+- **User/View**: vê rotas onde `creatorId = userId` OU `creatorId IS NULL` (legadas) OU `publica = true` OU email do usuário está em `route_shares`
 
 ### Permissão de escrita
 - Função `temPermissaoEscrita(routeId, userId, userRole)`: retorna `true` se Admin ou se o usuário é o `creatorId`
@@ -112,6 +112,12 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 - Criador ou Admin adicionam e-mails via `POST /api/rotas/rotasvia/:id/compartilhar`
 - Painel inline no `Admin.jsx` lista e-mails compartilhados com botão "remover"
 - Rota compartilhada exibe badge "compartilhado" no frontend
+
+### Rotas públicas
+- Coluna `publica` (BOOLEAN, default false); checkbox "Rota pública" no cadastro e na edição em `Admin.jsx`
+- Rota pública é visível (somente leitura) a todos os usuários logados — Dashboard, Monitor, Mapa e Gerenciar Rotas; badge "pública" na lista
+- Edição/remoção continuam restritas ao criador ou Admin
+- `PUT` só altera `publica` se o campo vier no body
 
 ### Rotas órfãs (página Ajustes)
 - `GET /api/rotas/rotasvia/orfas` — lista rotas com `creatorId IS NULL`

@@ -90,6 +90,8 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS "avatarUrl" VARCHAR(500);
 -- Autoria e categorização de rotas (safe para banco já existente)
 ALTER TABLE tv_tempo_via ADD COLUMN IF NOT EXISTS "creatorId" INTEGER REFERENCES users(id) ON DELETE SET NULL;
 ALTER TABLE tv_tempo_via ADD COLUMN IF NOT EXISTS categoria VARCHAR(100);
+-- Rota pública: visível (somente leitura) a todos os usuários logados
+ALTER TABLE tv_tempo_via ADD COLUMN IF NOT EXISTS publica BOOLEAN NOT NULL DEFAULT false;
 
 -- Heartbeat do ETL — uma única linha; atualizada após cada ciclo bem-sucedido.
 -- Usada pelo mecanismo de failover: VPS só assume se last_run estiver ausente ou

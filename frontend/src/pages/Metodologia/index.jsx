@@ -182,8 +182,8 @@ const SECOES = [
         titulo: 'Resumo de permissões por perfil',
         cabecalho: ['Perfil', 'Ver rotas', 'Criar', 'Editar / Remover', 'Compartilhar'],
         linhas: [
-          ['View (1)', 'Suas + compartilhadas + legadas', '—', '—', '—'],
-          ['User (2)', 'Suas + compartilhadas + legadas', 'Sim', 'Apenas as suas', 'Sim (das suas)'],
+          ['View (1)', 'Suas + públicas + compartilhadas + legadas', '—', '—', '—'],
+          ['User (2)', 'Suas + públicas + compartilhadas + legadas', 'Sim', 'Apenas as suas', 'Sim (das suas)'],
           ['Admin (99)', 'Todas', 'Sim', 'Todas', 'Todas'],
         ],
       },
@@ -196,6 +196,11 @@ const SECOES = [
         tipo: 'destaque',
         titulo: 'Compartilhamento por e-mail',
         conteudo: 'O criador pode compartilhar qualquer uma das suas rotas com outros usuários informando o endereço de e-mail deles. O acesso concedido é somente leitura: o usuário vê a rota no Dashboard e no Monitor, mas não pode editá-la nem removê-la.',
+      },
+      {
+        tipo: 'destaque',
+        titulo: 'Rotas públicas',
+        conteudo: 'Ao cadastrar ou editar uma rota, o criador pode marcar a opção "Rota pública". Rotas públicas aparecem para todos os usuários logados no Dashboard, no Monitor e no Mapa, sempre em modo somente leitura. Apenas o criador ou um Administrador pode editá-las ou removê-las.',
       },
       {
         tipo: 'passos',

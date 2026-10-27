@@ -7,7 +7,7 @@ import AppShell from '../components/AppShell';
 import { parseGoogleMapsUrl } from '../utils/mapUtils';
 
 const LIBRARIES = ['geometry', 'places'];
-const FORM_VAZIO = { name: '', url: '', categoria: '' };
+const FORM_VAZIO = { name: '', url: '', categoria: '', publica: false };
 const RIO_CENTER = { lat: -22.9068, lng: -43.1729 };
 
 // Fora do componente para evitar remount a cada render
@@ -173,6 +173,7 @@ export default function Admin() {
         name: editando.name,
         url: editando.url,
         categoria: editando.categoria,
+        publica: editando.publica,
         geometry,
       });
       setMensagem('Rota atualizada!' + (geometry ? ' Traçado salvo.' : ''));
@@ -323,6 +324,16 @@ export default function Admin() {
                 )}
               </div>
 
+              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.publica}
+                  onChange={e => setForm({ ...form, publica: e.target.checked })}
+                  className="w-4 h-4"
+                />
+                Rota pública <span className="text-xs text-gray-400">(todos os usuários podem visualizar, sem editar)</span>
+              </label>
+
               <PreviewMap path={preview?.path} />
               <PreviewStatus pv={preview} />
 
@@ -420,6 +431,16 @@ export default function Admin() {
                 )}
               </div>
 
+              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editando.publica}
+                  onChange={e => setEditando({ ...editando, publica: e.target.checked })}
+                  className="w-4 h-4"
+                />
+                Rota pública <span className="text-xs text-gray-400">(todos os usuários podem visualizar, sem editar)</span>
+              </label>
+
               <PreviewMap path={preview?.path} />
               <PreviewStatus pv={preview} />
 
@@ -513,6 +534,9 @@ export default function Admin() {
                           </a>
                           {rota.isSharedWithMe && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: '#EFF6FF', color: '#1D4ED8' }}>↗</span>
+                          )}
+                          {rota.publica && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: '#DCFCE7', color: '#166534' }}>pública</span>
                           )}
                           {rota.creatorId === null && (
                             <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: '#FEF3C7', color: '#92400E' }}>legada</span>
@@ -642,7 +666,7 @@ export default function Admin() {
   );
 
   function handleIniciarEdicao(rota) {
-    setEditando({ id: rota.id, name: rota.name, url: rota.url, categoria: rota.categoria || '' });
+    setEditando({ id: rota.id, name: rota.name, url: rota.url, categoria: rota.categoria || '', publica: !!rota.publica });
     setPreview(null);
     setMensagem(null);
     setShareAberto(null);
