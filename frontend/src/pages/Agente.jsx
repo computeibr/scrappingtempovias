@@ -308,6 +308,8 @@ export default function Agente() {
             <Item label="Visibilidade"><TabelaRotas /></Item>
             <Item label="Escrita">Criador da rota ou Admin podem editar/remover. Compartilhamento é somente leitura.</Item>
             <Item label="Compartilhamento">Por e-mail (não por user_id). Criador ou Admin adicionam e-mails via API. Badge "compartilhado" exibido no frontend.</Item>
+            <Item label="Duplicatas">Ao cadastrar, <code className="bg-gray-100 px-1 rounded">POST /rotasvia/similares</code> compara nome e traçado (início/fim a até 15% do comprimento, teto 200 m) com todas as rotas e mostra aviso "Já existem rotas parecidas" — só nome, categoria e criador, nunca URL. Não bloqueia o cadastro.</Item>
+            <Item label="Pedir acesso">Tabela <code className="bg-gray-100 px-1 rounded">route_access_requests</code> (pendente/aprovado/recusado). Criador vê painel "Pedidos de acesso" em Gerenciar Rotas; aprovar cria <code className="bg-gray-100 px-1 rounded">route_shares</code> com o e-mail do solicitante (somente leitura).</Item>
             <Item label="Pública">Coluna <code className="bg-gray-100 px-1 rounded">publica BOOLEAN DEFAULT false</code>. Checkbox no cadastro/edição; rota pública é visível (somente leitura) a todos os usuários logados. Badge "pública" na lista.</Item>
             <Item label="Categoria">Campo <code className="bg-gray-100 px-1 rounded">VARCHAR(100)</code> livre. Input com <code className="bg-gray-100 px-1 rounded">&lt;datalist&gt;</code> sugere categorias existentes. Chips clicáveis no Dashboard e Monitor filtram por categoria.</Item>
             <Item label="Órfãs">Página <strong>/ajustes</strong> — Admin reivindica rotas sem creatorId individualmente ou todas de uma vez.</Item>

@@ -113,3 +113,14 @@ CREATE TABLE IF NOT EXISTS route_shares (
     "updatedAt" TIMESTAMPTZ   DEFAULT NOW(),
     UNIQUE ("routeId", email)
 );
+
+-- Pedidos de acesso a rotas de outros usuários (aprovar = cria registro em route_shares)
+CREATE TABLE IF NOT EXISTS route_access_requests (
+    id            SERIAL PRIMARY KEY,
+    "routeId"     INTEGER      NOT NULL REFERENCES tv_tempo_via(id) ON DELETE CASCADE,
+    "requesterId" INTEGER      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status        VARCHAR(20)  NOT NULL DEFAULT 'pendente',  -- pendente | aprovado | recusado
+    "createdAt"   TIMESTAMPTZ  DEFAULT NOW(),
+    "updatedAt"   TIMESTAMPTZ  DEFAULT NOW(),
+    UNIQUE ("routeId", "requesterId")
+);

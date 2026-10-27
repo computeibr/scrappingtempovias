@@ -53,6 +53,51 @@ function PreviewStatus({ pv }) {
   );
 }
 
+// Aviso de rotas parecidas já cadastradas (evita monitorar o mesmo trecho duas vezes)
+function SimilaresAviso({ lista, onPedirAcesso }) {
+  if (!lista.length) return null;
+  return (
+    <div className="rounded-lg border p-3" style={{ background: '#FFFBEB', borderColor: '#F9C600' }}>
+      <p className="text-sm font-semibold" style={{ color: '#92400E' }}>Já existem rotas parecidas</p>
+      <p className="text-xs text-gray-600 mb-2">
+        Confira antes de cadastrar para não monitorar o mesmo trecho duas vezes.
+      </p>
+      <ul className="flex flex-col gap-2">
+        {lista.map(s => (
+          <li key={s.id} className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="min-w-0">
+              <p className="text-sm font-medium break-words" style={{ color: '#13335A' }}>{s.name}</p>
+              <p className="text-xs text-gray-500">
+                {s.motivo === 'trajeto' ? 'Mesmo início e fim' : 'Nome parecido'}
+                {' · '}criada por {s.criador}
+                {s.categoria ? ` · ${s.categoria}` : ''}
+              </p>
+            </div>
+            {s.acesso === 'propria' ? (
+              <span className="text-xs text-gray-500">Sua rota</span>
+            ) : s.acesso === 'visivel' ? (
+              <span className="text-xs text-gray-500">Você já vê esta rota</span>
+            ) : s.pedido === 'pendente' ? (
+              <span className="text-xs px-2 py-1 rounded" style={{ background: '#EFF6FF', color: '#1D4ED8' }}>
+                Pedido enviado
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => onPedirAcesso(s.id)}
+                className="text-xs px-3 py-1.5 rounded border font-semibold"
+                style={{ borderColor: '#004A80', color: '#004A80' }}
+              >
+                {s.pedido === 'recusado' ? 'Pedir novamente' : 'Pedir acesso'}
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export default function Admin() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -78,14 +123,64 @@ export default function Admin() {
   const [filtroCategoria, setFiltroCategoria]     = useState('');
   const [tentouCadastrar, setTentouCadastrar]     = useState(false);
   const [tentouEditar, setTentouEditar]           = useState(false);
+  const [similares, setSimilares]                 = useState([]);
+  const [pedidos, setPedidos]                     = useState([]);
 
   useEffect(() => {
     if (!user || user.perfilId < 2) {
       navigate('/');
     } else {
       carregarRotas();
+      carregarPedidos();
     }
   }, []);
+
+  // Busca rotas parecidas enquanto digita o nome ou após "Visualizar" (traçado)
+  const geometryPreview = preview?.encodedPolyline || null;
+  useEffect(() => {
+    if (editando || (form.name.trim().length < 3 && !geometryPreview)) {
+      setSimilares([]);
+      return;
+    }
+    let ativo = true;
+    const t = setTimeout(async () => {
+      try {
+        const { data } = await api.post('/api/rotas/rotasvia/similares', { name: form.name, geometry: geometryPreview });
+        if (ativo) setSimilares(data.similares || []);
+      } catch {
+        if (ativo) setSimilares([]);
+      }
+    }, 600);
+    return () => { ativo = false; clearTimeout(t); };
+  }, [form.name, geometryPreview, editando]);
+
+  async function carregarPedidos() {
+    try {
+      const { data } = await api.get('/api/rotas/rotasvia/pedidos');
+      setPedidos(data.pedidos || []);
+    } catch {
+      setPedidos([]);
+    }
+  }
+
+  async function handlePedirAcesso(routeId) {
+    try {
+      await api.post(`/api/rotas/rotasvia/${routeId}/pedir-acesso`);
+      setSimilares(lista => lista.map(s => (s.id === routeId ? { ...s, pedido: 'pendente' } : s)));
+    } catch (err) {
+      alert(err.response?.data?.mensagem || 'Erro ao pedir acesso.');
+    }
+  }
+
+  async function handleResponderPedido(pedidoId, aprovar) {
+    try {
+      await api.post(`/api/rotas/rotasvia/pedidos/${pedidoId}/responder`, { aprovar });
+      carregarPedidos();
+      carregarRotas();
+    } catch (err) {
+      alert(err.response?.data?.mensagem || 'Erro ao responder pedido.');
+    }
+  }
 
   async function carregarRotas() {
     try {
@@ -241,6 +336,47 @@ export default function Admin() {
           Gerenciar Rotas
         </h1>
 
+        {/* ── Pedidos de acesso às minhas rotas ─────────────────────────────── */}
+        {pedidos.length > 0 && (
+          <div className="bg-white rounded-xl shadow p-6 mb-8 border-l-4" style={{ borderLeftColor: '#00C0F3' }}>
+            <h2 className="text-lg font-semibold mb-1" style={{ color: '#13335A' }}>
+              Pedidos de acesso
+              <span className="ml-2 text-sm font-normal text-gray-400">({pedidos.length})</span>
+            </h2>
+            <p className="text-xs text-gray-500 mb-3">
+              Aprovar compartilha a rota com o usuário em modo somente leitura.
+            </p>
+            <ul className="divide-y divide-gray-100">
+              {pedidos.map(p => (
+                <li key={p.id} className="py-3 flex items-center justify-between gap-3 flex-wrap">
+                  <div className="min-w-0">
+                    <p className="text-sm">
+                      <strong>{p.solicitante}</strong>{' '}
+                      <span className="text-gray-500 break-all">({p.email})</span>
+                    </p>
+                    <p className="text-xs text-gray-500 break-words">quer visualizar: {p.rotaNome}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleResponderPedido(p.id, true)}
+                      className="text-xs px-3 py-1.5 rounded text-white font-semibold"
+                      style={{ background: '#34973B' }}
+                    >
+                      Aprovar
+                    </button>
+                    <button
+                      onClick={() => handleResponderPedido(p.id, false)}
+                      className="text-xs px-3 py-1.5 rounded border border-gray-300 text-gray-600"
+                    >
+                      Recusar
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {/* ── Formulário de cadastro ────────────────────────────────────────── */}
         {!editando && (
           <div className="bg-white rounded-xl shadow p-6 mb-8">
@@ -323,6 +459,8 @@ export default function Admin() {
                   </p>
                 )}
               </div>
+
+              <SimilaresAviso lista={similares} onPedirAcesso={handlePedirAcesso} />
 
               <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                 <input

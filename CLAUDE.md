@@ -42,6 +42,7 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 │   ├── User.js         ← tabela users
 │   ├── rotasvia.js     ← tabela tv_tempo_via (id, name, url, geometry, categoria, creatorId)
 │   ├── routeShare.js   ← tabela route_shares (id, routeId, email) — compartilhamento view-only
+│   ├── routeAccessRequest.js ← tabela route_access_requests (routeId, requesterId, status) — pedidos de acesso
 │   └── tempovias.js    ← tabela tempovias (id, viaId FK, nomedarota, tempo, km, leitura, urlfoto)
 ├── middlewares/
 │   ├── auth.js         ← eAdmin + soAdmin; ambos expõem req.userId E req.userRole
@@ -75,6 +76,7 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 |---|---|
 | `tv_tempo_via` | Rotas: id, name, url, geometry, **categoria**, **creatorId** (FK→users), **publica** (BOOLEAN, default false), createdAt, updatedAt |
 | `route_shares` | Compartilhamentos: id, routeId (FK→tv_tempo_via), email, createdAt, updatedAt; UNIQUE(routeId,email) |
+| `route_access_requests` | Pedidos de acesso: id, routeId (FK→tv_tempo_via CASCADE), requesterId (FK→users CASCADE), status (`pendente`/`aprovado`/`recusado`), createdAt, updatedAt; UNIQUE(routeId,requesterId) |
 | `tempovias` | Histórico: id, viaId (FK), nomedarota, tempo, km, leitura (timestamp), urlfoto, createdAt, updatedAt |
 | `users` | Usuários: id, name, email, password (bcrypt), perfilId (1=View, 2=User, 99=Admin), **avatarUrl** (VARCHAR 500, nullable), createdAt, updatedAt |
 | `etl_heartbeat` | Failover ETL: id=1 (única linha), last_run (TIMESTAMPTZ), source ('local' ou 'vps') |
@@ -119,6 +121,15 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 - Edição/remoção continuam restritas ao criador ou Admin
 - `PUT` só altera `publica` se o campo vier no body
 
+### Rotas parecidas e pedido de acesso (evitar duplicatas)
+- Ao cadastrar, `Admin.jsx` chama `POST /rotasvia/similares` (debounce 600ms) com o nome digitado e, após "Visualizar", o traçado (`geometry`)
+- Compara com **todas** as rotas (inclusive as que o usuário não vê) e devolve só nome, categoria, nome do criador, motivo e situação de acesso — **nunca URL nem traçado**
+- **Trajeto**: início e fim da polyline a até 15% do comprimento da rota (teto 200 m), mesmo sentido — tolerância proporcional evita falso positivo em rotas curtas de sentido oposto (ex.: Delfim Moreira ~140 m)
+- **Nome**: normaliza acentos, ignora stopwords (av, rua, sentido, de...) e números; parecido = ≥2 palavras em comum (ou todas, se só 1) e ≥60% das palavras do nome menor
+- Aviso amarelo "Já existem rotas parecidas" **não bloqueia** o cadastro; cada item mostra "Sua rota", "Você já vê esta rota", "Pedido enviado" ou botão "Pedir acesso"/"Pedir novamente"
+- Pedido de acesso: `POST /rotasvia/:id/pedir-acesso` (não vale para legadas nem para a própria rota); recusado pode ser pedido de novo
+- Criador (ou Admin) vê painel "Pedidos de acesso" no topo de Gerenciar Rotas; **aprovar = cria `route_shares` com o e-mail do solicitante** (somente leitura); recusar só muda o status
+
 ### Rotas órfãs (página Ajustes)
 - `GET /api/rotas/rotasvia/orfas` — lista rotas com `creatorId IS NULL`
 - `POST /api/rotas/rotasvia/orfas/assumir` — Admin passa array de `routeIds` (ou vazio para assumir todas)
@@ -154,6 +165,10 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 | DELETE | `/api/rotas/rotasvia/:id` | eAdmin | Remove rota (criador ou admin) |
 | POST | `/api/rotas/rotasvia/:id/compartilhar` | eAdmin | Adiciona e-mail ao compartilhamento (criador ou admin) |
 | DELETE | `/api/rotas/rotasvia/:id/compartilhar/:email` | eAdmin | Remove e-mail do compartilhamento (criador ou admin) |
+| POST | `/api/rotas/rotasvia/similares` | eAdmin | Rotas parecidas (nome e/ou traçado) — só nome, categoria, criador, motivo, acesso |
+| POST | `/api/rotas/rotasvia/:id/pedir-acesso` | eAdmin | Pede acesso de visualização ao criador da rota |
+| GET | `/api/rotas/rotasvia/pedidos` | eAdmin | Pedidos pendentes nas rotas do usuário (Admin: todas) |
+| POST | `/api/rotas/rotasvia/pedidos/:id/responder` | eAdmin | `{ aprovar: true/false }` — aprovar cria compartilhamento (criador ou admin) |
 | POST | `/api/rotas/rotasvia/orfas/assumir` | soAdmin | Atribui `creatorId` a rotas órfãs (array de IDs ou vazio = todas) |
 
 **Parâmetros de `/historico/:id`:**

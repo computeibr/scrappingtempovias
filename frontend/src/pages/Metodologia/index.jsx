@@ -203,6 +203,11 @@ const SECOES = [
         conteudo: 'Ao cadastrar ou editar uma rota, o criador pode marcar a opção "Rota pública". Rotas públicas aparecem para todos os usuários logados no Dashboard, no Monitor e no Mapa, sempre em modo somente leitura. Apenas o criador ou um Administrador pode editá-las ou removê-las.',
       },
       {
+        tipo: 'destaque',
+        titulo: 'Rotas parecidas e pedido de acesso',
+        conteudo: 'Ao cadastrar uma rota, o sistema verifica se já existe outra com nome parecido ou com o mesmo início e fim — inclusive rotas de outros usuários que você não vê. Nesse caso aparece o aviso "Já existem rotas parecidas", com o nome da rota e de quem a criou. Você pode clicar em "Pedir acesso": o criador recebe o pedido em "Gerenciar Rotas" e, se aprovar, a rota passa a aparecer para você em modo somente leitura. O aviso não impede o cadastro.',
+      },
+      {
         tipo: 'passos',
         titulo: 'Como compartilhar uma rota',
         itens: [
