@@ -5,6 +5,8 @@ const { Op } = require('sequelize');
 const Rotasvia   = require('../models/rotasvia');
 const RouteShare = require('../models/routeShare');
 const RouteAccessRequest = require('../models/routeAccessRequest');
+const CategoryShare = require('../models/categoryShare');
+const rotasVisiveis = require('../utils/rotasVisiveis');
 const User       = require('../models/User');
 const { eAdmin, soAdmin } = require('../middlewares/auth');
 
@@ -106,28 +108,14 @@ router.get('/rotasvia/minhas', eAdmin, async (req, res) => {
         const me = await User.findByPk(userId, { attributes: ['email'] });
         if (!me) return res.status(401).json({ erro: true, mensagem: 'Usuário não encontrado.' });
 
-        let rotasvias;
-        if (userRole === 99) {
-            rotasvias = await Rotasvia.findAll({ order: [['id', 'ASC']] });
-        } else {
-            const sharedRoutes = await RouteShare.findAll({
-                where: { email: me.email },
-                attributes: ['routeId'],
-            });
-            const sharedIds = sharedRoutes.map(s => s.routeId);
+        const rotasvias = await rotasVisiveis(userId, userRole, { order: [['id', 'ASC']] });
 
-            rotasvias = await Rotasvia.findAll({
-                where: {
-                    [Op.or]: [
-                        { creatorId: userId },
-                        { creatorId: null },
-                        { publica: true },
-                        ...(sharedIds.length ? [{ id: { [Op.in]: sharedIds } }] : []),
-                    ],
-                },
-                order: [['id', 'ASC']],
-            });
-        }
+        // Categorias compartilhadas diretamente com meu e-mail (para o badge "compartilhado")
+        const minhasCategorias = await CategoryShare.findAll({
+            where: { email: me.email },
+            attributes: ['ownerId', 'categoria'],
+        });
+        const categoriaComigo = new Set(minhasCategorias.map(c => `${c.ownerId}|${c.categoria}`));
 
         // Busca todos os compartilhamentos das rotas retornadas
         const routeIds = rotasvias.map(r => r.id);
@@ -149,7 +137,8 @@ router.get('/rotasvia/minhas', eAdmin, async (req, res) => {
             return {
                 ...plain,
                 canEdit: isAdmin || isCreator,
-                isSharedWithMe: !isCreator && !isAdmin && plain.creatorId !== null && shares.includes(me.email),
+                isSharedWithMe: !isCreator && !isAdmin && plain.creatorId !== null
+                    && (shares.includes(me.email) || categoriaComigo.has(`${plain.creatorId}|${plain.categoria}`)),
                 shares: (isCreator || isAdmin) ? shares : [],
             };
         });
@@ -189,21 +178,20 @@ router.post('/rotasvia/similares', eAdmin, async (req, res) => {
         if (!top.length) return res.json({ similares: [] });
 
         const ids = top.map(c => c.r.id);
-        const me = await User.findByPk(userId, { attributes: ['email'] });
         const creatorIds = [...new Set(top.map(c => c.r.creatorId).filter(Boolean))];
-        const [criadores, shares, pedidos] = await Promise.all([
+        const [criadores, visiveis, pedidos] = await Promise.all([
             creatorIds.length ? User.findAll({ where: { id: creatorIds }, attributes: ['id', 'name'] }) : [],
-            RouteShare.findAll({ where: { routeId: ids, email: me?.email || '' }, attributes: ['routeId'] }),
+            rotasVisiveis(userId, userRole, { attributes: ['id'] }),
             RouteAccessRequest.findAll({ where: { routeId: ids, requesterId: userId }, attributes: ['routeId', 'status'] }),
         ]);
         const nomeCriador = Object.fromEntries(criadores.map(u => [u.id, u.name]));
-        const compartilhadas = new Set(shares.map(s => s.routeId));
+        const idsVisiveis = new Set(visiveis.map(v => v.id));
         const statusPedido = Object.fromEntries(pedidos.map(p => [p.routeId, p.status]));
 
         const similares = top.map(({ r, motivo }) => {
             let acesso = 'sem_acesso';
             if (r.creatorId === userId) acesso = 'propria';
-            else if (userRole === 99 || r.creatorId === null || r.publica || compartilhadas.has(r.id)) acesso = 'visivel';
+            else if (idsVisiveis.has(r.id)) acesso = 'visivel';
             return {
                 id: r.id,
                 name: r.name,
@@ -309,6 +297,65 @@ router.post('/rotasvia/pedidos/:id/responder', eAdmin, async (req, res) => {
     } catch (err) {
         console.error('Erro em /pedidos/responder:', err.message);
         return res.status(400).json({ erro: true, mensagem: 'Erro ao responder pedido.' });
+    }
+});
+
+// ─── Compartilhamento por categoria (regra contínua) ─────────────────────────
+// Vale para as rotas que o usuário criou na categoria, inclusive as adicionadas depois.
+// email NULL = categoria pública. Rotas declaradas ANTES de /rotasvia/:id/compartilhar.
+router.get('/rotasvia/categorias/compartilhamentos', eAdmin, async (req, res) => {
+    try {
+        const regras = await CategoryShare.findAll({
+            where: { ownerId: req.userId },
+            order: [['categoria', 'ASC'], ['email', 'ASC']],
+        });
+        const porCategoria = {};
+        for (const r of regras) {
+            if (!porCategoria[r.categoria]) porCategoria[r.categoria] = { categoria: r.categoria, publica: false, emails: [] };
+            if (r.email === null) porCategoria[r.categoria].publica = true;
+            else porCategoria[r.categoria].emails.push(r.email);
+        }
+        return res.json({ categorias: Object.values(porCategoria) });
+    } catch (err) {
+        console.error('Erro em /categorias/compartilhamentos:', err.message);
+        return res.status(400).json({ erro: true, mensagem: 'Erro ao listar compartilhamentos de categoria.' });
+    }
+});
+
+// body: { categoria, publica: true } ou { categoria, email }
+router.post('/rotasvia/categorias/compartilhar', eAdmin, async (req, res) => {
+    const { categoria } = req.body;
+    const publica = req.body.publica === true;
+    const email = publica ? null : (req.body.email || '').toLowerCase().trim();
+
+    if (!categoria || !categoria.trim()) return res.status(400).json({ erro: true, mensagem: 'Categoria obrigatória.' });
+    if (!publica && !email) return res.status(400).json({ erro: true, mensagem: 'E-mail obrigatório.' });
+
+    try {
+        await CategoryShare.findOrCreate({ where: { ownerId: req.userId, categoria, email } });
+        return res.json({
+            erro: false,
+            mensagem: publica ? 'Categoria pública.' : 'Categoria compartilhada com sucesso!',
+        });
+    } catch (err) {
+        console.error('Erro em /categorias/compartilhar:', err.message);
+        return res.status(400).json({ erro: true, mensagem: 'Erro ao compartilhar categoria.' });
+    }
+});
+
+// query: ?categoria=X&email=Y  (sem email = deixa de ser pública)
+router.delete('/rotasvia/categorias/compartilhar', eAdmin, async (req, res) => {
+    const { categoria, email } = req.query;
+    if (!categoria) return res.status(400).json({ erro: true, mensagem: 'Categoria obrigatória.' });
+
+    try {
+        await CategoryShare.destroy({
+            where: { ownerId: req.userId, categoria, email: email ? email.toLowerCase().trim() : null },
+        });
+        return res.json({ erro: false, mensagem: 'Compartilhamento de categoria removido.' });
+    } catch (err) {
+        console.error('Erro ao remover compartilhamento de categoria:', err.message);
+        return res.status(400).json({ erro: true, mensagem: 'Erro ao remover compartilhamento de categoria.' });
     }
 });
 

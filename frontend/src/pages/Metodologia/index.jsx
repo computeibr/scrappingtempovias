@@ -204,6 +204,11 @@ const SECOES = [
       },
       {
         tipo: 'destaque',
+        titulo: 'Compartilhar ou tornar pública uma categoria',
+        conteudo: 'No cabeçalho de cada categoria em "Gerenciar Rotas" há um botão de compartilhar. Nele você pode marcar a categoria como pública ou compartilhá-la com e-mails específicos. A regra vale para todas as rotas que você criou nessa categoria, inclusive as que forem adicionadas depois — não é preciso compartilhar rota por rota. Rotas que outros usuários colocaram numa categoria com o mesmo nome não são afetadas. O acesso concedido é sempre somente leitura.',
+      },
+      {
+        tipo: 'destaque',
         titulo: 'Rotas parecidas e pedido de acesso',
         conteudo: 'Ao cadastrar uma rota, o sistema verifica se já existe outra com nome parecido ou com o mesmo início e fim — inclusive rotas de outros usuários que você não vê. Nesse caso aparece o aviso "Já existem rotas parecidas", com o nome da rota e de quem a criou. Você pode clicar em "Pedir acesso": o criador recebe o pedido em "Gerenciar Rotas" e, se aprovar, a rota passa a aparecer para você em modo somente leitura. O aviso não impede o cadastro.',
       },

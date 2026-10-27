@@ -98,6 +98,64 @@ function SimilaresAviso({ lista, onPedirAcesso }) {
   );
 }
 
+// Painel de compartilhamento de uma categoria (regra contínua)
+function CategoriaSharePanel({ categoria, regra, onPublica, onAdicionar, onRemover }) {
+  const [email, setEmail] = useState('');
+  const emails = regra?.emails || [];
+
+  function adicionar() {
+    if (!email.trim()) return;
+    onAdicionar(categoria, email.trim());
+    setEmail('');
+  }
+
+  return (
+    <div className="mb-4 p-3 rounded-lg bg-gray-50 border border-gray-200">
+      <p className="text-xs text-gray-500 mb-3">
+        Vale para as rotas que <strong>você criou</strong> nesta categoria, inclusive as que forem adicionadas depois.
+        Acesso somente leitura.
+      </p>
+      <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer mb-3">
+        <input
+          type="checkbox"
+          checked={!!regra?.publica}
+          onChange={e => onPublica(categoria, e.target.checked)}
+          className="w-4 h-4"
+        />
+        Categoria pública <span className="text-xs text-gray-400">(todos os usuários podem visualizar)</span>
+      </label>
+      <p className="text-xs font-semibold text-gray-600 mb-2">Compartilhada com:</p>
+      {emails.length === 0 ? (
+        <p className="text-xs text-gray-400 mb-2">Nenhum e-mail ainda.</p>
+      ) : (
+        <ul className="mb-2 flex flex-col gap-1">
+          {emails.map(em => (
+            <li key={em} className="flex items-center justify-between text-xs">
+              <span className="text-gray-700 break-all">{em}</span>
+              <button onClick={() => onRemover(categoria, em)} className="text-red-500 hover:text-red-700 ml-3 underline">
+                remover
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex gap-2 mt-2">
+        <input
+          type="email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          placeholder="email@exemplo.com"
+          className="flex-1 min-w-0 border border-gray-300 rounded px-2 py-1 text-base focus:outline-none"
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); adicionar(); } }}
+        />
+        <button onClick={adicionar} className="text-xs px-3 py-1 rounded text-white" style={{ background: '#004A80' }}>
+          Adicionar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function Admin() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -125,6 +183,8 @@ export default function Admin() {
   const [tentouEditar, setTentouEditar]           = useState(false);
   const [similares, setSimilares]                 = useState([]);
   const [pedidos, setPedidos]                     = useState([]);
+  const [catShares, setCatShares]                 = useState({});
+  const [catShareAberto, setCatShareAberto]       = useState(null);
 
   useEffect(() => {
     if (!user || user.perfilId < 2) {
@@ -132,8 +192,50 @@ export default function Admin() {
     } else {
       carregarRotas();
       carregarPedidos();
+      carregarCatShares();
     }
   }, []);
+
+  // ─── Compartilhamento por categoria ─────────────────────────────────────────
+  async function carregarCatShares() {
+    try {
+      const { data } = await api.get('/api/rotas/rotasvia/categorias/compartilhamentos');
+      setCatShares(Object.fromEntries((data.categorias || []).map(c => [c.categoria, c])));
+    } catch {
+      setCatShares({});
+    }
+  }
+
+  async function handleCatPublica(categoria, publica) {
+    try {
+      if (publica) {
+        await api.post('/api/rotas/rotasvia/categorias/compartilhar', { categoria, publica: true });
+      } else {
+        await api.delete('/api/rotas/rotasvia/categorias/compartilhar', { params: { categoria } });
+      }
+      carregarCatShares();
+    } catch (err) {
+      alert(err.response?.data?.mensagem || 'Erro ao alterar categoria.');
+    }
+  }
+
+  async function handleCatAdicionarEmail(categoria, email) {
+    try {
+      await api.post('/api/rotas/rotasvia/categorias/compartilhar', { categoria, email });
+      carregarCatShares();
+    } catch (err) {
+      alert(err.response?.data?.mensagem || 'Erro ao compartilhar categoria.');
+    }
+  }
+
+  async function handleCatRemoverEmail(categoria, email) {
+    try {
+      await api.delete('/api/rotas/rotasvia/categorias/compartilhar', { params: { categoria, email } });
+      carregarCatShares();
+    } catch (err) {
+      alert(err.response?.data?.mensagem || 'Erro ao remover compartilhamento.');
+    }
+  }
 
   // Busca rotas parecidas enquanto digita o nome ou após "Visualizar" (traçado)
   const geometryPreview = preview?.encodedPolyline || null;
@@ -647,12 +749,46 @@ export default function Admin() {
           ) : (
             Object.entries(rotasPorCategoria).map(([cat, lista]) => (
               <div key={cat} className="bg-white rounded-xl shadow p-6">
-                <h2 className="text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: '#004A80' }}>
-                  {cat}
-                  <span className="ml-2 text-xs font-normal text-gray-400 normal-case">
-                    ({lista.length})
-                  </span>
-                </h2>
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <h2 className="text-sm font-semibold uppercase tracking-wide" style={{ color: '#004A80' }}>
+                    {cat}
+                    <span className="ml-2 text-xs font-normal text-gray-400 normal-case">
+                      ({lista.length})
+                    </span>
+                    {catShares[cat]?.publica && (
+                      <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded normal-case font-normal" style={{ background: '#DCFCE7', color: '#166534' }}>
+                        pública
+                      </span>
+                    )}
+                    {catShares[cat]?.emails.length > 0 && (
+                      <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded normal-case font-normal" style={{ background: '#EFF6FF', color: '#1D4ED8' }}>
+                        compartilhada ({catShares[cat].emails.length})
+                      </span>
+                    )}
+                  </h2>
+                  {cat !== 'Sem categoria' && lista.some(r => r.creatorId === user?.id) && (
+                    <button
+                      onClick={() => setCatShareAberto(catShareAberto === cat ? null : cat)}
+                      title="Compartilhar categoria"
+                      className="w-8 h-8 shrink-0 flex items-center justify-center rounded-lg border transition-colors hover:bg-sky-50"
+                      style={{ borderColor: '#00C0F3', color: '#00C0F3' }}
+                    >
+                      <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
+                        <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92c0-1.61-1.31-2.92-2.92-2.92z"/>
+                      </svg>
+                    </button>
+                  )}
+                </div>
+
+                {catShareAberto === cat && (
+                  <CategoriaSharePanel
+                    categoria={cat}
+                    regra={catShares[cat]}
+                    onPublica={handleCatPublica}
+                    onAdicionar={handleCatAdicionarEmail}
+                    onRemover={handleCatRemoverEmail}
+                  />
+                )}
 
                 <ul className="divide-y divide-gray-100">
                   {lista.map(rota => (

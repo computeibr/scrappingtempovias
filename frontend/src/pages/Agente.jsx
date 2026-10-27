@@ -77,7 +77,7 @@ function TabelaAcesso() {
 function TabelaRotas() {
   const regras = [
     { quem: 'Admin (99)',       vê: 'Todas as rotas sem exceção' },
-    { quem: 'User / View (1,2)', vê: 'Suas rotas + rotas legadas (creatorId IS NULL) + rotas públicas (publica=true) + rotas compartilhadas com seu e-mail' },
+    { quem: 'User / View (1,2)', vê: 'Suas rotas + rotas legadas (creatorId IS NULL) + rotas públicas (publica=true) + rotas compartilhadas com seu e-mail + rotas de categorias públicas ou compartilhadas com seu e-mail' },
   ];
   return (
     <div className="overflow-x-auto -mx-5">
@@ -308,6 +308,7 @@ export default function Agente() {
             <Item label="Visibilidade"><TabelaRotas /></Item>
             <Item label="Escrita">Criador da rota ou Admin podem editar/remover. Compartilhamento é somente leitura.</Item>
             <Item label="Compartilhamento">Por e-mail (não por user_id). Criador ou Admin adicionam e-mails via API. Badge "compartilhado" exibido no frontend.</Item>
+            <Item label="Categoria">Tabela <code className="bg-gray-100 px-1 rounded">category_shares</code> (ownerId, categoria, email; email NULL = pública). Regra contínua que vale só para as rotas que o dono criou na categoria, inclusive as adicionadas depois. Ícone de compartilhar no cabeçalho da categoria em Gerenciar Rotas.</Item>
             <Item label="Duplicatas">Ao cadastrar, <code className="bg-gray-100 px-1 rounded">POST /rotasvia/similares</code> compara nome e traçado (início/fim a até 15% do comprimento, teto 200 m) com todas as rotas e mostra aviso "Já existem rotas parecidas" — só nome, categoria e criador, nunca URL. Não bloqueia o cadastro.</Item>
             <Item label="Pedir acesso">Tabela <code className="bg-gray-100 px-1 rounded">route_access_requests</code> (pendente/aprovado/recusado). Criador vê painel "Pedidos de acesso" em Gerenciar Rotas; aprovar cria <code className="bg-gray-100 px-1 rounded">route_shares</code> com o e-mail do solicitante (somente leitura).</Item>
             <Item label="Pública">Coluna <code className="bg-gray-100 px-1 rounded">publica BOOLEAN DEFAULT false</code>. Checkbox no cadastro/edição; rota pública é visível (somente leitura) a todos os usuários logados. Badge "pública" na lista.</Item>

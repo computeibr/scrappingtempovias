@@ -124,3 +124,15 @@ CREATE TABLE IF NOT EXISTS route_access_requests (
     "updatedAt"   TIMESTAMPTZ  DEFAULT NOW(),
     UNIQUE ("routeId", "requesterId")
 );
+
+-- Compartilhamento por categoria (regra contínua): vale para as rotas que "ownerId" criou
+-- nessa categoria, inclusive as adicionadas depois. email NULL = categoria pública.
+CREATE TABLE IF NOT EXISTS category_shares (
+    id          SERIAL PRIMARY KEY,
+    "ownerId"   INTEGER       NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    categoria   VARCHAR(100)  NOT NULL,
+    email       VARCHAR(150),
+    "createdAt" TIMESTAMPTZ   DEFAULT NOW(),
+    "updatedAt" TIMESTAMPTZ   DEFAULT NOW(),
+    UNIQUE NULLS NOT DISTINCT ("ownerId", categoria, email)
+);

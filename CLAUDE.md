@@ -35,7 +35,7 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 │   ├── health.js       ← GET / (público), GET /detalhes (soAdmin), POST /test-email (soAdmin)
 │   └── rotasvia.js     ← CRUD de rotas + autoria + compartilhamento + rotas órfãs
 ├── utils/
-│   ├── rotasVisiveis.js  ← helper compartilhado: Admin→todas; outros→suas+legadas+públicas+compartilhadas
+│   ├── rotasVisiveis.js  ← helper compartilhado: Admin→todas; outros→suas+legadas+públicas+compartilhadas+categorias compartilhadas (usado também em /minhas e /similares)
 │   └── monitorSistema.js ← loop setInterval 60s: alerta por e-mail se CPU da VPS > threshold
 ├── models/
 │   ├── db.js           ← Sequelize dialect postgres; suporte a DB_SSL via env
@@ -43,6 +43,7 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 │   ├── rotasvia.js     ← tabela tv_tempo_via (id, name, url, geometry, categoria, creatorId)
 │   ├── routeShare.js   ← tabela route_shares (id, routeId, email) — compartilhamento view-only
 │   ├── routeAccessRequest.js ← tabela route_access_requests (routeId, requesterId, status) — pedidos de acesso
+│   ├── categoryShare.js ← tabela category_shares (ownerId, categoria, email|NULL) — categoria pública/compartilhada
 │   └── tempovias.js    ← tabela tempovias (id, viaId FK, nomedarota, tempo, km, leitura, urlfoto)
 ├── middlewares/
 │   ├── auth.js         ← eAdmin + soAdmin; ambos expõem req.userId E req.userRole
@@ -76,6 +77,7 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 |---|---|
 | `tv_tempo_via` | Rotas: id, name, url, geometry, **categoria**, **creatorId** (FK→users), **publica** (BOOLEAN, default false), createdAt, updatedAt |
 | `route_shares` | Compartilhamentos: id, routeId (FK→tv_tempo_via), email, createdAt, updatedAt; UNIQUE(routeId,email) |
+| `category_shares` | Compartilhamento por categoria: id, ownerId (FK→users CASCADE), categoria, email (NULL = categoria pública), createdAt, updatedAt; UNIQUE NULLS NOT DISTINCT(ownerId,categoria,email) |
 | `route_access_requests` | Pedidos de acesso: id, routeId (FK→tv_tempo_via CASCADE), requesterId (FK→users CASCADE), status (`pendente`/`aprovado`/`recusado`), createdAt, updatedAt; UNIQUE(routeId,requesterId) |
 | `tempovias` | Histórico: id, viaId (FK), nomedarota, tempo, km, leitura (timestamp), urlfoto, createdAt, updatedAt |
 | `users` | Usuários: id, name, email, password (bcrypt), perfilId (1=View, 2=User, 99=Admin), **avatarUrl** (VARCHAR 500, nullable), createdAt, updatedAt |
@@ -104,7 +106,7 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 
 ### Visibilidade (`GET /api/rotas/rotasvia/minhas`)
 - **Admin**: vê todas as rotas
-- **User/View**: vê rotas onde `creatorId = userId` OU `creatorId IS NULL` (legadas) OU `publica = true` OU email do usuário está em `route_shares`
+- **User/View**: vê rotas onde `creatorId = userId` OU `creatorId IS NULL` (legadas) OU `publica = true` OU email do usuário está em `route_shares` OU (`creatorId`, `categoria`) bate com uma regra de `category_shares` pública ou com seu e-mail
 
 ### Permissão de escrita
 - Função `temPermissaoEscrita(routeId, userId, userRole)`: retorna `true` se Admin ou se o usuário é o `creatorId`
@@ -120,6 +122,14 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 - Rota pública é visível (somente leitura) a todos os usuários logados — Dashboard, Monitor, Mapa e Gerenciar Rotas; badge "pública" na lista
 - Edição/remoção continuam restritas ao criador ou Admin
 - `PUT` só altera `publica` se o campo vier no body
+
+### Categoria pública / compartilhada (regra contínua)
+- Tabela `category_shares` (ownerId, categoria, email); `email NULL` = categoria pública
+- A regra vale **só para as rotas que o dono criou** naquela categoria — categoria é texto livre e dois usuários podem usar o mesmo nome; assim ninguém expõe rotas alheias
+- Contínua: rota nova (ou editada) para a categoria herda a visibilidade na hora; mudar a rota de categoria a tira da regra
+- Match exato do texto da categoria
+- UI: ícone de compartilhar no cabeçalho de cada categoria em `Admin.jsx` (só aparece se o usuário criou ≥1 rota nela) → checkbox "Categoria pública" + lista de e-mails; badges "pública" / "compartilhada (N)" no cabeçalho
+- Rotas vistas via categoria compartilhada por e-mail ganham o badge "↗" (`isSharedWithMe`)
 
 ### Rotas parecidas e pedido de acesso (evitar duplicatas)
 - Ao cadastrar, `Admin.jsx` chama `POST /rotasvia/similares` (debounce 600ms) com o nome digitado e, após "Visualizar", o traçado (`geometry`)
@@ -165,6 +175,9 @@ Plataforma full-stack para monitoramento automático do tempo de viagem em rotas
 | DELETE | `/api/rotas/rotasvia/:id` | eAdmin | Remove rota (criador ou admin) |
 | POST | `/api/rotas/rotasvia/:id/compartilhar` | eAdmin | Adiciona e-mail ao compartilhamento (criador ou admin) |
 | DELETE | `/api/rotas/rotasvia/:id/compartilhar/:email` | eAdmin | Remove e-mail do compartilhamento (criador ou admin) |
+| GET | `/api/rotas/rotasvia/categorias/compartilhamentos` | eAdmin | Regras de categoria do usuário: `[{ categoria, publica, emails[] }]` |
+| POST | `/api/rotas/rotasvia/categorias/compartilhar` | eAdmin | `{ categoria, publica: true }` ou `{ categoria, email }` |
+| DELETE | `/api/rotas/rotasvia/categorias/compartilhar?categoria=&email=` | eAdmin | Remove regra (sem `email` = deixa de ser pública) |
 | POST | `/api/rotas/rotasvia/similares` | eAdmin | Rotas parecidas (nome e/ou traçado) — só nome, categoria, criador, motivo, acesso |
 | POST | `/api/rotas/rotasvia/:id/pedir-acesso` | eAdmin | Pede acesso de visualização ao criador da rota |
 | GET | `/api/rotas/rotasvia/pedidos` | eAdmin | Pedidos pendentes nas rotas do usuário (Admin: todas) |
